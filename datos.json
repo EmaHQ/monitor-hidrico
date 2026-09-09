@@ -1,0 +1,80 @@
+[
+  {
+    "puerto": "ANDRESITO",
+    "rio": "IGUAZU",
+    "altura_m": 2.38,
+    "tendencia": "Crece",
+    "variacion_m": 0.22,
+    "fecha_medicion": "09/SEP/26 - 0000",
+    "alerta_m": 10.5,
+    "evacuacion_m": 13.5,
+    "fuente": "PNA",
+    "url_fuente": "https://contenidosweb.prefecturanaval.gob.ar/alturas/",
+    "actualizado_en": "2026-09-09T10:51:03-03:00"
+  },
+  {
+    "puerto": "IGUAZU",
+    "rio": "IGUAZU",
+    "altura_m": 12.8,
+    "tendencia": "Crece",
+    "variacion_m": 1.1,
+    "fecha_medicion": "09/SEP/26 - 0000",
+    "alerta_m": 25.0,
+    "evacuacion_m": 28.0,
+    "fuente": "PNA",
+    "url_fuente": "https://contenidosweb.prefecturanaval.gob.ar/alturas/",
+    "actualizado_en": "2026-09-09T10:51:03-03:00"
+  },
+  {
+    "puerto": "CORRIENTES",
+    "rio": "PARANA",
+    "altura_m": 3.28,
+    "tendencia": "Baja",
+    "variacion_m": -0.05,
+    "fecha_medicion": "09/SEP/26 - 0000",
+    "alerta_m": 6.5,
+    "evacuacion_m": 7.0,
+    "fuente": "PNA",
+    "url_fuente": "https://contenidosweb.prefecturanaval.gob.ar/alturas/",
+    "actualizado_en": "2026-09-09T10:51:03-03:00"
+  },
+  {
+    "puerto": "BARRANQUERAS",
+    "rio": "PARANA",
+    "altura_m": 3.29,
+    "tendencia": "Baja",
+    "variacion_m": -0.03,
+    "fecha_medicion": "09/SEP/26 - 0000",
+    "alerta_m": 6.0,
+    "evacuacion_m": 6.5,
+    "fuente": "PNA",
+    "url_fuente": "https://contenidosweb.prefecturanaval.gob.ar/alturas/",
+    "actualizado_en": "2026-09-09T10:51:03-03:00"
+  },
+  {
+    "puerto": "FORMOSA",
+    "rio": "PARAGUAY",
+    "altura_m": 2.0,
+    "tendencia": "Estacionario",
+    "variacion_m": 0.0,
+    "fecha_medicion": "09/SEP/26 - 0000",
+    "alerta_m": 7.8,
+    "evacuacion_m": 8.3,
+    "fuente": "PNA",
+    "url_fuente": "https://contenidosweb.prefecturanaval.gob.ar/alturas/",
+    "actualizado_en": "2026-09-09T10:51:03-03:00"
+  },
+  {
+    "puerto": "ASUNCION",
+    "rio": "PARAGUAY",
+    "altura_m": 0.66,
+    "tendencia": "Baja",
+    "variacion_m": -0.03,
+    "fecha_medicion": "09-09-2026",
+    "alerta_m": null,
+    "evacuacion_m": null,
+    "fuente": "DMH",
+    "url_fuente": "https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php",
+    "actualizado_en": "2026-09-09T10:51:04-03:00"
+  }
+]
