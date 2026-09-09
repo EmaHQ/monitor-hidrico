@@ -1,3 +1,12 @@
+// Datos del historial. Se llenan en init() con lo que devuelve history.json:
+// hasta que el fetch termine, los renders no se ejecutan.
+let DATES=[];      // fechas ISO, una por columna de las series
+let DATE_LBL=[];   // etiquetas cortas para los gráficos ('3 ago'), derivadas de DATES
+let RIVERS=[];     // ríos con sus estaciones y sus series r[]
+
+const ARCHIVO_HISTORIAL='./history.json';
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
 const CS = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function fmt(v){ return v===null||v===undefined ? 'S/D' : v.toFixed(2); }
 function fmtISO(iso){
@@ -199,12 +208,11 @@ function renderToggles(){
   });
 }
 function renderRecords(){
-  const MO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   let h='';
   for(const rv of RIVERS) for(const s of rv.stations){
     const mx=maxR(s.r);if(!mx)continue;
     const[,m,d]=DATES[mx.i].split('-');
-    h+=`<div class="rec-cell"><div class="rec-stn">${s.n}</div><div class="rec-rv">${rv.name}</div><div class="rec-val">${mx.x.toFixed(2)} m</div><div class="rec-when">máx el ${+d} ${MO[+m-1]}</div></div>`;
+    h+=`<div class="rec-cell"><div class="rec-stn">${s.n}</div><div class="rec-rv">${rv.name}</div><div class="rec-val">${mx.x.toFixed(2)} m</div><div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div></div>`;
   }
   document.getElementById('js-records').innerHTML=h;
 }
@@ -267,4 +275,51 @@ function renderHistorical() {
   });
 }
 function renderDate(){document.getElementById('js-date').textContent=fmtISO(DATES[DATES.length-1]);}
-renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();renderToggles();buildChart();renderRecords();
+
+// --- Carga de datos e inicialización ---------------------------------------
+
+// '2026-09-08' -> '8 sep'. Reemplaza a la vieja constante DATE_LBL, que antes
+// venía escrita a mano en data.js.
+function etiquetaCorta(iso){
+  const[,m,d]=iso.split('-');
+  return `${+d} ${MESES[+m-1]}`;
+}
+
+async function cargarHistorial(){
+  // no-store: el scraper reescribe el archivo todos los días y no queremos
+  // que el navegador sirva una versión cacheada.
+  const resp=await fetch(ARCHIVO_HISTORIAL,{cache:'no-store'});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} al pedir ${ARCHIVO_HISTORIAL}`);
+  const datos=await resp.json();
+  if(!Array.isArray(datos.DATES)||!Array.isArray(datos.RIVERS))
+    throw new Error('history.json no tiene la forma {"DATES":[...],"RIVERS":[...]}');
+  return datos;
+}
+
+function mostrarErrorDeCarga(error){
+  const el=document.getElementById('js-alerts');
+  el.hidden=false;
+  el.innerHTML=`<span class="alert-lbl">⚠ Sin datos</span>
+    <span class="alert-pill">No se pudo cargar history.json: ${error.message}</span>
+    <span class="alert-pill">Servilo por HTTP (por ejemplo: python -m http.server)</span>`;
+  console.error('[monitor-hidrico] fallo la carga del historial:', error);
+}
+
+async function init(){
+  let datos;
+  try{
+    datos=await cargarHistorial();
+  }catch(error){
+    // fetch() falla con file:// por CORS: el dashboard necesita un servidor.
+    mostrarErrorDeCarga(error);
+    return;
+  }
+
+  DATES=datos.DATES;
+  RIVERS=datos.RIVERS;
+  DATE_LBL=DATES.map(etiquetaCorta);
+
+  renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();renderToggles();buildChart();renderRecords();
+}
+
+init();

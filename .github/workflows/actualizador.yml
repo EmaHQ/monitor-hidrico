@@ -1,0 +1,35 @@
+name: Automatizacion Hidrometrica
+
+on:
+  schedule:
+    # Ejecuta a las 11:00, 17:00 y 23:00 UTC (8:00, 14:00 y 20:00 hora de Argentina)
+    - cron: '0 11,17,23 * * *'
+  workflow_dispatch: # Permite ejecutarlo a mano con un botón
+
+jobs:
+  actualizar-datos:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerías
+        run: pip install requests beautifulsoup4
+
+      - name: Ejecutar el Scraper
+        run: python backend/scraper.py
+
+      - name: Guardar los datos nuevos
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add history.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Actualización automática de alturas" && git push)

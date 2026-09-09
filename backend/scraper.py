@@ -1,5 +1,5 @@
 """
-Scraper de datos hidrométricos para el Monitor Hídrico.
+Scraper "historiador" de datos hidrométricos para el Monitor Hídrico.
 
 Fuentes:
   1. PNA  — Prefectura Naval Argentina (alturas de los ríos)
@@ -7,7 +7,14 @@ Fuentes:
   2. DMH  — Dirección de Meteorología e Hidrología de Paraguay (estaciones convencionales)
      https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php
 
-Salida: datos.json en la raíz del proyecto (una lista de diccionarios).
+En vez de escribir una "foto" del día, el script mantiene la serie histórica
+completa en history.json (raíz del proyecto), con la forma:
+
+    {"DATES": ["2026-08-03", ...], "RIVERS": [{..., "stations": [{"n", "al", "ev", "r"}]}]}
+
+Cada corrida agrega la fecha de hoy a DATES (o reutiliza la existente si ya
+corrió hoy) y escribe un valor por estación en su serie `r`: el nivel scrapeado
+o null si esa estación no vino en el scraping.
 
 Uso:
     python backend/scraper.py
@@ -20,7 +27,7 @@ import logging
 import re
 import time
 import unicodedata
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import requests
@@ -31,7 +38,7 @@ from bs4 import BeautifulSoup
 # ---------------------------------------------------------------------------
 
 RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
-ARCHIVO_SALIDA = RAIZ_PROYECTO / "datos.json"
+ARCHIVO_HISTORIAL = RAIZ_PROYECTO / "history.json"
 
 URL_PNA = "https://contenidosweb.prefecturanaval.gob.ar/alturas/"
 URL_DMH = "https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php"
@@ -58,8 +65,12 @@ ESPERA_ENTRE_INTENTOS = 3  # segundos (se multiplica por el nº de intento)
 # PARA AGREGAR MÁS PUERTOS: sumá una entrada a estos diccionarios.
 #   clave  = nombre tal como aparece en la columna "Puerto"/"Localidad" de la
 #            web, normalizado (MAYÚSCULAS y sin acentos; ver normalizar()).
-#   valor  = nombre canónico que querés ver en datos.json.
-# El orden de estos diccionarios es el orden de salida del JSON.
+#   valor  = nombre de la estación ("n") en history.json.
+#
+# El valor es el que une el scraping con el historial: se compara normalizado
+# contra el campo "n" de cada estación, así que 'IGUAZU' encuentra a 'IGUAZÚ'.
+# Si scrapeás un puerto que todavía no existe como estación en history.json, el
+# script avisa y descarta esa lectura (no inventa estaciones).
 #
 # Los nombres disponibles se pueden listar corriendo el script con la constante
 # LISTAR_DISPONIBLES en True (ver más abajo, al final de cada scraper).
@@ -413,15 +424,115 @@ def scrapear_dmh() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Orquestación
+# Historial (history.json)
 # ---------------------------------------------------------------------------
 
-def guardar_json(registros: list[dict], destino: Path = ARCHIVO_SALIDA) -> None:
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    with destino.open("w", encoding="utf-8") as archivo:
-        json.dump(registros, archivo, ensure_ascii=False, indent=2)
-    log.info("Guardados %d registros en %s", len(registros), destino)
+def cargar_historial(ruta: Path = ARCHIVO_HISTORIAL) -> dict:
+    """Lee history.json y valida que tenga la estructura esperada."""
+    with ruta.open(encoding="utf-8") as archivo:
+        historial = json.load(archivo)
+    if not isinstance(historial.get("DATES"), list) or not isinstance(historial.get("RIVERS"), list):
+        raise ValueError('se esperaba {"DATES": [...], "RIVERS": [...]}')
+    return historial
 
+
+def indice_del_dia(historial: dict, fecha_iso: str) -> int:
+    """Devuelve el índice de la columna de hoy dentro de DATES.
+
+    Si la fecha no está, se agrega al final (un día nuevo de historia). Si ya
+    está —porque el script corrió dos veces el mismo día— se reutiliza su
+    índice y los valores se sobrescriben, así la corrida es idempotente.
+    """
+    fechas = historial["DATES"]
+    if fecha_iso in fechas:
+        indice = fechas.index(fecha_iso)
+        log.info("La fecha %s ya existía (índice %d): se sobrescriben sus valores", fecha_iso, indice)
+        return indice
+    fechas.append(fecha_iso)
+    log.info("Fecha nueva agregada al historial: %s (índice %d)", fecha_iso, len(fechas) - 1)
+    return len(fechas) - 1
+
+
+def sincronizar_longitudes(historial: dict) -> None:
+    """Garantiza que cada serie `r` tenga exactamente len(DATES) valores.
+
+    Es la invariante que sostiene todo el front-end: el valor de la posición i
+    corresponde a DATES[i]. Al agregar una fecha nueva, acá se abre el hueco
+    (con null) en todas las estaciones antes de escribir las lecturas del día.
+    """
+    total = len(historial["DATES"])
+    for rio in historial["RIVERS"]:
+        for estacion in rio.get("stations", []):
+            serie = estacion.setdefault("r", [])
+            if len(serie) < total:
+                serie.extend([None] * (total - len(serie)))
+            elif len(serie) > total:
+                log.warning(
+                    "La estación '%s' tenía %d valores para %d fechas: se recorta el excedente",
+                    estacion.get("n"), len(serie), total,
+                )
+                del serie[total:]
+
+
+def registrar_lecturas(historial: dict, indice: int, lecturas: dict[str, float | None]) -> None:
+    """Escribe en la posición `indice` de cada estación su lectura de hoy.
+
+    `lecturas` viene indexado por nombre de puerto normalizado. Las estaciones
+    que no aparecen en el scraping quedan en null, que es como el front-end
+    representa "sin dato" (S/D).
+    """
+    usadas: set[str] = set()
+    con_dato = 0
+
+    for rio in historial["RIVERS"]:
+        for estacion in rio.get("stations", []):
+            clave = normalizar(estacion.get("n", ""))
+            valor = lecturas.get(clave)
+            if clave in lecturas:
+                usadas.add(clave)
+            if valor is not None:
+                con_dato += 1
+            estacion["r"][indice] = valor
+
+    total_estaciones = sum(len(rio.get("stations", [])) for rio in historial["RIVERS"])
+    log.info("Lecturas escritas: %d con dato, %d en null", con_dato, total_estaciones - con_dato)
+
+    # Puertos scrapeados que no tienen estación en history.json: se pierden.
+    # Si querés conservarlos, agregá la estación al río correspondiente.
+    for huerfana in sorted(set(lecturas) - usadas):
+        log.warning("El puerto '%s' no existe como estación en history.json: se descarta", huerfana)
+
+
+def formatear_json(datos: dict) -> str:
+    """Serializa con indentación de 2 espacios pero series `r` en una línea.
+
+    Con indent=2 puro, cada nivel del array `r` ocupa una línea y el archivo se
+    vuelve inmanejable (miles de líneas). Colapsamos sólo los arrays que son
+    puramente numéricos/null, que es exactamente el caso de las series.
+    """
+    texto = json.dumps(datos, ensure_ascii=False, indent=2)
+    serie_numerica = re.compile(
+        r"\[\s*((?:-?\d+(?:\.\d+)?|null)(?:\s*,\s*(?:-?\d+(?:\.\d+)?|null))*)\s*\]"
+    )
+    return serie_numerica.sub(
+        lambda m: "[" + ", ".join(re.split(r"\s*,\s*", m.group(1))) + "]",
+        texto,
+    )
+
+
+def guardar_historial(historial: dict, destino: Path = ARCHIVO_HISTORIAL) -> None:
+    with destino.open("w", encoding="utf-8") as archivo:
+        archivo.write(formatear_json(historial) + "\n")
+    log.info(
+        "history.json actualizado: %d fechas, %d estaciones",
+        len(historial["DATES"]),
+        sum(len(rio.get("stations", [])) for rio in historial["RIVERS"]),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Orquestación
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     logging.basicConfig(
@@ -430,9 +541,17 @@ def main() -> int:
         datefmt="%H:%M:%S",
     )
 
+    # 1. Historial existente. Si no se puede leer, cortamos antes de scrapear:
+    #    no queremos perder la serie ni escribir un archivo a medias.
+    try:
+        historial = cargar_historial()
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        log.error("No se pudo leer %s: %s", ARCHIVO_HISTORIAL, error)
+        return 1
+
+    # 2. Scraping. Cada fuente va en su propio try: si una se cae, seguimos con
+    #    la otra y las estaciones faltantes quedarán en null.
     registros: list[dict] = []
-    # Cada fuente se envuelve por separado: si una se cae, guardamos lo que
-    # trajo la otra en lugar de perder toda la corrida.
     for etiqueta, scraper in (("PNA", scrapear_pna), ("DMH", scrapear_dmh)):
         try:
             parciales = scraper()
@@ -442,10 +561,9 @@ def main() -> int:
             log.error("[%s] fuente no disponible: %s", etiqueta, error)
 
     if not registros:
-        log.error("No se extrajo ningún dato: no se sobrescribe datos.json")
+        log.error("No se extrajo ningún dato: history.json queda intacto")
         return 1
 
-    guardar_json(registros)
     for registro in registros:
         log.info(
             "  %-14s %-10s %s m (%s)",
@@ -454,6 +572,13 @@ def main() -> int:
             registro["altura_m"],
             registro["tendencia"],
         )
+
+    # 3. Volcado al historial: fecha de hoy + un valor por estación.
+    lecturas = {normalizar(r["puerto"]): r["altura_m"] for r in registros}
+    indice = indice_del_dia(historial, date.today().isoformat())
+    sincronizar_longitudes(historial)
+    registrar_lecturas(historial, indice, lecturas)
+    guardar_historial(historial)
     return 0
 
 
