@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitor Hídrico — Altura de los Ríos</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="hdr">
+    <div class="hdr-brand">
+      <span class="hdr-name">MONITOR HÍDRICO</span>
+      <span class="hdr-dept">Altura de los Ríos</span>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-date" id="js-date"></div>
+      <div class="hdr-hour">Medición a las 0:00 hs · Bermejo: 8:00 hs (COREBE)</div>
+    </div>
+  </header>
+
+  <div class="alert-strip" id="js-alerts" hidden></div>
+  <div class="stats" id="js-stats"></div>
+
+  <div class="content">
+    <div class="panel">
+      <div class="sec-hd"><span class="sec-title">Evolución por estación — seleccioná para comparar</span></div>
+      <div class="ch-ctrl" id="js-toggles"></div>
+      <div class="ch-area"><canvas id="js-chart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-hd"><span class="sec-title">Máximos del período registrado</span></div>
+      <div class="rec-grid" id="js-records"></div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-hd"><span class="sec-title">Histórico por río — serie completa</span></div>
+      <div id="js-hist-panels"></div>
+    </div>
+
+    <div class="rivers" id="js-rivers"></div>
+  </div>
+
+  <footer>
+    Fuente: APA Chaco — Sector Alerta Hidrometeorológica | COREBE — Sistema de Información Hidrológica
+    <span class="footer-author">Autora: Ayelén Montserrat Núñez</span>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
