@@ -2,12 +2,20 @@
 // hasta que el fetch termine, los renders no se ejecutan.
 let DATES=[];      // fechas ISO, una por columna de las series
 let DATE_LBL=[];   // etiquetas cortas para los gráficos ('3 ago'), derivadas de DATES
-let RIVERS=[];     // ríos con sus estaciones y sus series r[]
+let RIVERS=[];     // ríos con sus puertos (clave "stations") y sus series r[]
 
 const ARCHIVO_HISTORIAL='./history.json';
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 const CS = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Unidad de cada puerto. Casi todos miden altura en metros, pero las represas
+// de Brasil (Capanema, Itaipú) informan caudal en m³/s: en history.json vienen
+// con "u": "m³/s" y no pueden compartir el eje Y con las alturas, porque sus
+// valores son un orden de magnitud más grandes y achatan el resto.
+const UNIDAD_ALTURA='m';
+const unidadDe = s => s.u||UNIDAD_ALTURA;
+const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
 function fmt(v){ return v===null||v===undefined ? 'S/D' : v.toFixed(2); }
 function fmtISO(iso){
   const [y,m,d] = iso.split('-');
@@ -69,7 +77,9 @@ function renderAlerts(){
     const v=var24(s.r);
     if(s.ev!==null&&cur!==null&&cur>=s.ev) evacs.push({n:s.n,cur,ev:s.ev});
     else if(s.al!==null&&cur!==null&&cur>=s.al) alerts.push({n:s.n,cur,al:s.al});
-    else if(v!==null&&Math.abs(v)>=1) bigVars.push({n:s.n,v});
+    // El umbral de 1 m/24h sólo aplica a alturas: un salto de 1 m³/s de caudal
+    // no significa nada.
+    else if(esAltura(s)&&v!==null&&Math.abs(v)>=1) bigVars.push({n:s.n,v});
   }
   if(!evacs.length&&!alerts.length&&!bigVars.length){el.hidden=true;return;}
   el.hidden=false;
@@ -102,7 +112,6 @@ function renderRivers(){
   const dlbls=tblIdx.map(i=>{const[,m,day]=DATES[i].split('-');return`${+day}/${+m}`;});
   for(const rv of RIVERS){
     const col=CS(rv.cv);
-    const corebeTag=rv.corebe?`<span class="corebe-tag">COREBE</span>`:'';
     let rows='';
     for(const s of rv.stations){
       const t=tc(s.r), v=var24(s.r);
@@ -110,9 +119,10 @@ function renderRivers(){
       const aboveEvac=s.ev!==null&&cur!==null&&cur>=s.ev;
       const aboveAlert=s.al!==null&&cur!==null&&cur>=s.al;
       const nearAlert=!aboveAlert&&s.al!==null&&cur!==null&&cur>=s.al*0.9;
-      const bigVar=v!==null&&Math.abs(v)>=1;
+      const u=unidadDe(s);
+      const bigVar=esAltura(s)&&v!==null&&Math.abs(v)>=1;
       const isAl=aboveAlert||aboveEvac;
-      const vStr=v===null?'—':(v>=0?'+':'')+v.toFixed(2)+' m';
+      const vStr=v===null?'—':(v>=0?'+':'')+v.toFixed(2)+' '+u;
       const vCls=isAl?'va':v===null?'nd':v>0?'vu':v<0?'vd':'ve';
       const tlbl={C:'CRECE',B:'BAJA',E:'ESTABLE',nd:'S/D'}[t];
       const tblVals=tblIdx.map(i=>s.r[i]);
@@ -123,8 +133,9 @@ function renderRivers(){
       const evTd=s.ev!==null
         ? `<td class="td-num ${aboveEvac?'va':''}">${s.ev.toFixed(2)}</td>`
         : `<td class="td-num nd">—</td>`;
+      const uTag=esAltura(s)?'':`<span class="unit-tag">${u}</span>`;
       rows+=`<tr class="${rowCls}">
-        <td class="td-nm">${s.n}</td>
+        <td class="td-nm">${s.n}${uTag}</td>
         <td class="td-sp">${spark(s.r,col)}</td>
         ${tblVals.map(val=>`<td class="td-num ${val===null?'nd':''}">${fmt(val)}</td>`).join('')}
         <td class="td-var ${vCls}">${vStr}</td>
@@ -136,12 +147,12 @@ function renderRivers(){
     el.className='panel';
     el.innerHTML=`<div class="rv-hdr">
         <span class="rv-dot" style="background:${col}"></span>
-        <span class="rv-name">${rv.name}${corebeTag}</span>
-        <span class="rv-count">${rv.stations.length} estaciones</span>
+        <span class="rv-name">${rv.name}</span>
+        <span class="rv-count">${rv.stations.length} puertos</span>
       </div>
       <div class="tbl-wrap"><table class="st">
         <thead><tr>
-          <th>Hidrómetro</th><th class="c">Evolución</th>
+          <th>Puerto</th><th class="c">Evolución</th>
           ${dlbls.map(l=>`<th class="r">${l}</th>`).join('')}
           <th class="r">Var 24h</th><th class="c">Estado</th><th class="r">Alerta</th><th class="r">Evacuac.</th>
         </tr></thead>
@@ -150,15 +161,35 @@ function renderRivers(){
     wrap.appendChild(el);
   }
 }
-const CAT_L=['#0B5CAB','#0D9B8A','#1A6B7A','#1478A8','#3D8B6E','#5B7C99','#0E7C8B','#2A6F97'];
-const CAT_D=['#4BA3E6','#2EC4B0','#5EB4C4','#3DB5E0','#6BC4A0','#8AAFC4','#4DB8C6','#6AA8C9'];
-const active=new Set(['ANDRESITO','IGUAZÚ','CORRIENTES','FORMOSA']);
+// 12 colores: es la cantidad de puertos del río más poblado (Paraná), así
+// ninguna serie repite color dentro de un mismo panel.
+const CAT_L=['#0B5CAB','#0D9B8A','#1A6B7A','#1478A8','#3D8B6E','#5B7C99','#0E7C8B','#2A6F97','#6B4FA8','#A65C2E','#8C3D5F','#4F7A2A'];
+const CAT_D=['#4BA3E6','#2EC4B0','#5EB4C4','#3DB5E0','#6BC4A0','#8AAFC4','#4DB8C6','#6AA8C9','#A78BE0','#E0955F','#DE8AAF','#9CC96A'];
+
+// Filtro del panel de comparación: 'todos' (los 33 puertos juntos) o el id de
+// un río. Arranca en 'todos', que es el panel visible por defecto.
+const FILTRO_TODOS='todos';
+let filtroRio=FILTRO_TODOS;
 let chart=null;
-function allSt(){
+
+// Puertos que entran en el gráfico según el filtro activo, en el orden en que
+// vienen de history.json (ríos y puertos ya vienen ordenados desde el JSON).
+// Sólo puertos que miden en metros: los de caudal van en su propio panel.
+function puertosDelFiltro(){
+  const rios=filtroRio===FILTRO_TODOS?RIVERS:RIVERS.filter(rv=>rv.id===filtroRio);
+  const out=[];
+  for(const rv of rios) for(const s of rv.stations)
+    if(esAltura(s)) out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name});
+  return out;
+}
+function puertosDeCaudal(){
   const out=[];
   for(const rv of RIVERS) for(const s of rv.stations)
-    if(s.r.some(v=>v!==null)) out.push({n:s.n,r:s.r});
+    if(!esAltura(s)) out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name,u:unidadDe(s)});
   return out;
+}
+function cuantasAlturas(rv){
+  return rv.stations.filter(esAltura).length;
 }
 function chartTheme(){
   const dark=window.matchMedia('(prefers-color-scheme:dark)').matches||document.documentElement.getAttribute('data-theme')==='dark';
@@ -176,17 +207,31 @@ function chartTheme(){
 function buildChart(){
   const ctx=document.getElementById('js-chart').getContext('2d');
   const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
-  const sets=allSt().filter(s=>active.has(s.n)).map((s,i)=>({
-    label:s.n,data:s.r.map(v=>v===null?null:v),
-    borderColor:COLS[i%COLS.length],backgroundColor:COLS[i%COLS.length]+'18',
-    borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.2,spanGaps:false,fill:false,
-  }));
+  const puertos=puertosDelFiltro();
+  // Con los 33 puertos juntos no hay leyenda ni colores por puerto que se
+  // puedan leer: se pinta cada línea con el color de su río y se identifica
+  // el puerto al pasar el mouse. Filtrando por río sí entra la leyenda.
+  const todos=filtroRio===FILTRO_TODOS;
+  const sets=puertos.map((s,i)=>{
+    const col=todos?CS(s.cv):COLS[i%COLS.length];
+    return {
+      label:todos?`${s.n} · ${s.rio}`:s.n,
+      data:s.r.map(v=>v===null?null:v),
+      borderColor:col,backgroundColor:col+'18',
+      borderWidth:todos?1.5:2,
+      // pointRadius > 0 incluso en modo "todos": con una sola fecha cargada,
+      // una línea sin puntos no dibujaría nada.
+      pointRadius:todos?2:4,pointHoverRadius:6,
+      tension:.2,spanGaps:false,fill:false,
+    };
+  });
   if(chart) chart.destroy();
   chart=new Chart(ctx,{
     type:'line',data:{labels:DATE_LBL,datasets:sets},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:todos?{mode:'nearest',intersect:true}:{mode:'index',intersect:false},
       plugins:{
-        legend:{position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
+        legend:{display:!todos,position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
           callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' m':'S/D'}`}}
       },
@@ -197,13 +242,57 @@ function buildChart(){
     }
   });
 }
+// Panel aparte para los puertos que informan caudal. Mismo estilo que el
+// gráfico principal, pero con su propia escala y su propia unidad.
+let chartCaudal=null;
+function buildCaudalChart(){
+  const panel=document.getElementById('js-caudal-panel');
+  const puertos=puertosDeCaudal();
+  panel.hidden=!puertos.length;
+  if(!puertos.length) return;
+
+  const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
+  const unidad=puertos[0].u;
+  const sets=puertos.map((s,i)=>({
+    label:`${s.n} · ${s.rio}`,data:s.r.map(v=>v===null?null:v),
+    borderColor:COLS[i%COLS.length],backgroundColor:COLS[i%COLS.length]+'18',
+    borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.2,spanGaps:false,fill:false,
+  }));
+  if(chartCaudal) chartCaudal.destroy();
+  chartCaudal=new Chart(document.getElementById('js-caudal').getContext('2d'),{
+    type:'line',data:{labels:DATE_LBL,datasets:sets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
+        tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
+          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' '+unidad:'S/D'}`}}
+      },
+      scales:{
+        x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11}}},
+        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>v.toFixed(0)+' '+unidad}},
+      }
+    }
+  });
+}
+// Botonera del panel de comparación: "TODOS LOS PUERTOS" primero y después un
+// botón por río, en el orden en que vienen en history.json. Es de selección
+// única (como un radio), no una lista de puertos individuales.
 function renderToggles(){
   const el=document.getElementById('js-toggles');
-  el.innerHTML=allSt().map(s=>`<button class="tog ${active.has(s.n)?'on':''}" data-n="${s.n}">${s.n}</button>`).join('');
+  // Los contadores son de puertos graficados en este panel, es decir los que
+  // miden en metros: los de caudal tienen su propio panel.
+  const total=RIVERS.reduce((n,rv)=>n+cuantasAlturas(rv),0);
+  const botones=[{id:FILTRO_TODOS,txt:`TODOS LOS PUERTOS (${total})`}];
+  for(const rv of RIVERS)
+    botones.push({id:rv.id,txt:`${rv.name.replace(/^Río\s+/,'')} (${cuantasAlturas(rv)})`});
+
+  el.innerHTML=botones.map(b=>
+    `<button class="tog ${b.id===filtroRio?'on':''}" data-rio="${b.id}">${b.txt}</button>`).join('');
+
   el.addEventListener('click',e=>{
     const b=e.target.closest('.tog');if(!b)return;
-    const n=b.dataset.n;
-    active.has(n)?(active.delete(n),b.classList.remove('on')):(active.add(n),b.classList.add('on'));
+    filtroRio=b.dataset.rio;
+    el.querySelectorAll('.tog').forEach(x=>x.classList.toggle('on',x.dataset.rio===filtroRio));
     buildChart();
   });
 }
@@ -212,7 +301,7 @@ function renderRecords(){
   for(const rv of RIVERS) for(const s of rv.stations){
     const mx=maxR(s.r);if(!mx)continue;
     const[,m,d]=DATES[mx.i].split('-');
-    h+=`<div class="rec-cell"><div class="rec-stn">${s.n}</div><div class="rec-rv">${rv.name}</div><div class="rec-val">${mx.x.toFixed(2)} m</div><div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div></div>`;
+    h+=`<div class="rec-cell"><div class="rec-stn">${s.n}</div><div class="rec-rv">${rv.name}</div><div class="rec-val">${mx.x.toFixed(2)} ${unidadDe(s)}</div><div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div></div>`;
   }
   document.getElementById('js-records').innerHTML=h;
 }
@@ -220,7 +309,7 @@ const histCharts = {};
 function buildHistChart(rv, canvasId, visibleSet) {
   const ctx = document.getElementById(canvasId);if (!ctx) return;
   const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
-  const sets = rv.stations.filter(s=>s.r.some(v=>v!==null)).map((s,i)=>({
+  const sets = rv.stations.filter(esAltura).map((s,i)=>({
     label:s.n,data:s.r.map(v=>v===null?null:v),
     borderColor:COLS[i%COLS.length],backgroundColor:COLS[i%COLS.length]+'14',
     borderWidth:1.8,pointRadius:3,pointHoverRadius:5,tension:.2,spanGaps:false,fill:false,hidden:!visibleSet.has(s.n),
@@ -243,8 +332,11 @@ function buildHistChart(rv, canvasId, visibleSet) {
 function renderHistorical() {
   const wrap = document.getElementById('js-hist-panels');
   let html = '';
+  // Se listan los 5 ríos con todos sus puertos de altura, incluso los que
+  // todavía no tienen lecturas: el tablero los tiene que mostrar desde el día
+  // uno. Los de caudal quedan afuera porque tienen su propio panel.
   for (const rv of RIVERS) {
-    const stations = rv.stations.filter(s=>s.r.some(v=>v!==null));
+    const stations = rv.stations.filter(esAltura);
     if(!stations.length) continue;
     const col = CS(rv.cv);
     html+=`<div style="border-top:1px solid var(--border);">
@@ -260,7 +352,7 @@ function renderHistorical() {
   }
   wrap.innerHTML = html;
   for(const rv of RIVERS){
-    const stations=rv.stations.filter(s=>s.r.some(v=>v!==null));
+    const stations=rv.stations.filter(esAltura);
     if(!stations.length) continue;
     const visible=new Set(stations.map(s=>s.n));
     buildHistChart(rv,`hist-canvas-${rv.id}`,visible);
@@ -274,7 +366,12 @@ function renderHistorical() {
     if(ds){ds.hidden=!ds.hidden;ch.update();}
   });
 }
-function renderDate(){document.getElementById('js-date').textContent=fmtISO(DATES[DATES.length-1]);}
+// history.json puede estar recién inicializado (DATES vacío) hasta que corra
+// el scraper por primera vez.
+function renderDate(){
+  document.getElementById('js-date').textContent=
+    DATES.length?fmtISO(DATES[DATES.length-1]):'SIN REGISTROS';
+}
 
 // --- Carga de datos e inicialización ---------------------------------------
 
@@ -319,7 +416,8 @@ async function init(){
   RIVERS=datos.RIVERS;
   DATE_LBL=DATES.map(etiquetaCorta);
 
-  renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();renderToggles();buildChart();renderRecords();
+  renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();
+  renderToggles();buildChart();buildCaudalChart();renderRecords();
 }
 
 init();

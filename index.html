@@ -17,7 +17,7 @@
     </div>
     <div class="hdr-right">
       <div class="hdr-date" id="js-date"></div>
-      <div class="hdr-hour">Medición a las 0:00 hs · Bermejo: 8:00 hs (COREBE)</div>
+      <div class="hdr-hour">Medición a las 0:00 hs · Represas de Brasil: 9:00 hs</div>
     </div>
   </header>
 
@@ -26,9 +26,14 @@
 
   <div class="content">
     <div class="panel">
-      <div class="sec-hd"><span class="sec-title">Evolución por estación — seleccioná para comparar</span></div>
+      <div class="sec-hd"><span class="sec-title">Evolución por puerto — elegí un río para comparar</span></div>
       <div class="ch-ctrl" id="js-toggles"></div>
       <div class="ch-area"><canvas id="js-chart"></canvas></div>
+    </div>
+
+    <div class="panel" id="js-caudal-panel" hidden>
+      <div class="sec-hd"><span class="sec-title">Represas de Brasil — caudal en m³/s, escala aparte</span></div>
+      <div class="ch-area"><canvas id="js-caudal"></canvas></div>
     </div>
 
     <div class="panel">
@@ -37,7 +42,7 @@
     </div>
 
     <div class="panel">
-      <div class="sec-hd"><span class="sec-title">Histórico por río — serie completa</span></div>
+      <div class="sec-hd"><span class="sec-title">Histórico por río — serie completa por puerto</span></div>
       <div id="js-hist-panels"></div>
     </div>
 
@@ -45,7 +50,7 @@
   </div>
 
   <footer>
-    Fuente: APA Chaco — Sector Alerta Hidrometeorológica | COREBE — Sistema de Información Hidrológica
+    Fuentes: Prefectura Naval Argentina (PNA) | Dirección de Meteorología e Hidrología de Paraguay (DMH)
     <span class="footer-author">Autora: Ayelén Montserrat Núñez</span>
   </footer>
 

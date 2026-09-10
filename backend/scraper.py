@@ -13,8 +13,8 @@ completa en history.json (raíz del proyecto), con la forma:
     {"DATES": ["2026-08-03", ...], "RIVERS": [{..., "stations": [{"n", "al", "ev", "r"}]}]}
 
 Cada corrida agrega la fecha de hoy a DATES (o reutiliza la existente si ya
-corrió hoy) y escribe un valor por estación en su serie `r`: el nivel scrapeado
-o null si esa estación no vino en el scraping.
+corrió hoy) y escribe un valor por puerto en su serie `r`: el nivel scrapeado
+o null si ese puerto no vino en el scraping.
 
 La web de la PNA geobloquea los rangos de IP de GitHub Actions, así que en CI la
 descarga se hace a través de ScraperAPI. Se activa sola si existe la variable de
@@ -86,39 +86,71 @@ TIMEOUT_SCRAPER_API = 70  # el proxy reintenta por su cuenta y puede tardar más
 # PARA AGREGAR MÁS PUERTOS: sumá una entrada a estos diccionarios.
 #   clave  = nombre tal como aparece en la columna "Puerto"/"Localidad" de la
 #            web, normalizado (MAYÚSCULAS y sin acentos; ver normalizar()).
-#   valor  = nombre de la estación ("n") en history.json.
+#   valor  = nombre del puerto ("n") en history.json.
 #
 # El valor es el que une el scraping con el historial: se compara normalizado
-# contra el campo "n" de cada estación, así que 'IGUAZU' encuentra a 'IGUAZÚ'.
-# Si scrapeás un puerto que todavía no existe como estación en history.json, el
-# script avisa y descarta esa lectura (no inventa estaciones).
+# contra el campo "n" de cada puerto, así que 'IGUAZU' encuentra a 'IGUAZÚ'.
+# Si scrapeás un puerto que todavía no existe en history.json, el script avisa
+# y descarta esa lectura (no inventa puertos).
 #
 # Los nombres disponibles se pueden listar corriendo el script con la constante
 # LISTAR_DISPONIBLES en True (ver más abajo, al final de cada scraper).
 
 PUERTOS_PNA = {
+    # --- Río Paraguay ---
+    "BOUVIER": "BOUVIER",
+    "FORMOSA": "FORMOSA",
+    "BERMEJO": "BERMEJO",
+    "LAS PALMAS": "LAS PALMAS",
+    "ISLA DEL CERRITO": "ISLA DEL CERRITO",
+    # --- Río Iguazú ---
+    # OJO: las represas de Brasil publican CAUDAL en m³/s, no altura en metros
+    # (ver la nota al pie de la web de la PNA). En history.json van marcadas con
+    # "u": "m³/s" para que el front-end no las mezcle en el eje de los metros.
+    "REPRESA CAPANEMA (BRASIL)": "CAPANEMA",
     "ANDRESITO": "ANDRESITO",
-    "IGUAZU": "IGUAZU",
+    "IGUAZU": "IGUAZÚ",
+    # --- Río Paraná ---
+    "REPRESA ITAIPU (BRASIL)": "ITAIPÚ",  # también caudal en m³/s, no metros
+    "LIBERTAD": "LIBERTAD",
+    "POSADAS": "POSADAS",
+    "ITUZAINGO": "ITUZAINGÓ",
+    "ITA IBATE": "ITÁ IBATÉ",
+    "ITATI": "ITATÍ",
+    "PASO DE LA PATRIA": "PASO DE LA PATRIA",
     "CORRIENTES": "CORRIENTES",
     "BARRANQUERAS": "BARRANQUERAS",
-    "FORMOSA": "FORMOSA",
-    # Ejemplos de otros puertos disponibles en la misma tabla:
-    # "POSADAS": "POSADAS",
-    # "ITATI": "ITATI",
-    # "PASO DE LA PATRIA": "P. DE PATRIA",
-    # "ISLA DEL CERRITO": "CERRITO",
+    "EMPEDRADO": "EMPEDRADO",
+    "GOYA": "GOYA",
+    "ESQUINA": "ESQUINA",
+    # --- Río Uruguay ---
+    "EL SOBERBIO": "EL SOBERBIO",
+    # En la tabla de la PNA hay DOS "San Javier": este (río Uruguay) y
+    # "SAN JAVIER (SANTA FE)" sobre el río San Javier. Al comparar por clave
+    # exacta sólo entra el que pedimos.
+    "SAN JAVIER": "SAN JAVIER",
+    "SANTO TOME": "SANTO TOMÉ",
+    "ALVEAR": "ALVEAR",
+    "PASO DE LOS LIBRES": "PASO DE LOS LIBRES",
+    "MONTE CASEROS": "MONTE CASEROS",
 }
 
 PUERTOS_DMH = {
-    # En la web paraguaya el puerto de Asunción figura como "Asunción"
-    # (normalizado queda "ASUNCION").
-    "ASUNCION": "ASUNCION",
-    # Otras localidades disponibles: "CONCEPCION", "PILAR", "VILLETA",
-    # "ENCARNACION", "POZO HONDO", "ALBERDI", "HUMAITA", etc.
+    # --- Río Pilcomayo ---
+    "POZO HONDO": "POZO HONDO",
+    # --- Río Paraguay ---
+    # Las localidades brasileñas llevan el país en el nombre de la celda
+    # ("Cáceres - Brasil"), por eso la clave lo incluye.
+    "CACERES - BRASIL": "CÁCERES",
+    "BAHIA NEGRA": "BAHÍA NEGRA",
+    "PUERTO MURTINHO - BRASIL": "MURTINHO",
+    "VALLEMI": "VALLEMI",
+    "CONCEPCION": "CONCEPCIÓN",
+    "ASUNCION": "ASUNCIÓN",
 }
 
 # Poner en True para que el script imprima todos los puertos que encontró en
-# cada fuente. Sirve para copiar los nombres exactos al agregar estaciones.
+# cada fuente. Sirve para copiar los nombres exactos al agregar puertos.
 LISTAR_DISPONIBLES = False
 
 log = logging.getLogger("scraper")
@@ -515,49 +547,49 @@ def sincronizar_longitudes(historial: dict) -> None:
 
     Es la invariante que sostiene todo el front-end: el valor de la posición i
     corresponde a DATES[i]. Al agregar una fecha nueva, acá se abre el hueco
-    (con null) en todas las estaciones antes de escribir las lecturas del día.
+    (con null) en todos los puertos antes de escribir las lecturas del día.
     """
     total = len(historial["DATES"])
     for rio in historial["RIVERS"]:
-        for estacion in rio.get("stations", []):
-            serie = estacion.setdefault("r", [])
+        for puerto in rio.get("stations", []):
+            serie = puerto.setdefault("r", [])
             if len(serie) < total:
                 serie.extend([None] * (total - len(serie)))
             elif len(serie) > total:
                 log.warning(
-                    "La estación '%s' tenía %d valores para %d fechas: se recorta el excedente",
-                    estacion.get("n"), len(serie), total,
+                    "El puerto '%s' tenía %d valores para %d fechas: se recorta el excedente",
+                    puerto.get("n"), len(serie), total,
                 )
                 del serie[total:]
 
 
 def registrar_lecturas(historial: dict, indice: int, lecturas: dict[str, float | None]) -> None:
-    """Escribe en la posición `indice` de cada estación su lectura de hoy.
+    """Escribe en la posición `indice` de cada puerto su lectura de hoy.
 
-    `lecturas` viene indexado por nombre de puerto normalizado. Las estaciones
-    que no aparecen en el scraping quedan en null, que es como el front-end
+    `lecturas` viene indexado por nombre de puerto normalizado. Los puertos que
+    no aparecen en el scraping quedan en null, que es como el front-end
     representa "sin dato" (S/D).
     """
     usadas: set[str] = set()
     con_dato = 0
 
     for rio in historial["RIVERS"]:
-        for estacion in rio.get("stations", []):
-            clave = normalizar(estacion.get("n", ""))
+        for puerto in rio.get("stations", []):
+            clave = normalizar(puerto.get("n", ""))
             valor = lecturas.get(clave)
             if clave in lecturas:
                 usadas.add(clave)
             if valor is not None:
                 con_dato += 1
-            estacion["r"][indice] = valor
+            puerto["r"][indice] = valor
 
-    total_estaciones = sum(len(rio.get("stations", [])) for rio in historial["RIVERS"])
-    log.info("Lecturas escritas: %d con dato, %d en null", con_dato, total_estaciones - con_dato)
+    total_puertos = sum(len(rio.get("stations", [])) for rio in historial["RIVERS"])
+    log.info("Lecturas escritas: %d con dato, %d en null", con_dato, total_puertos - con_dato)
 
-    # Puertos scrapeados que no tienen estación en history.json: se pierden.
-    # Si querés conservarlos, agregá la estación al río correspondiente.
-    for huerfana in sorted(set(lecturas) - usadas):
-        log.warning("El puerto '%s' no existe como estación en history.json: se descarta", huerfana)
+    # Puertos scrapeados que no figuran en history.json: se pierden. Si querés
+    # conservarlos, agregalos al río correspondiente.
+    for huerfano in sorted(set(lecturas) - usadas):
+        log.warning("El puerto '%s' no existe en history.json: se descarta", huerfano)
 
 
 def formatear_json(datos: dict) -> str:
@@ -581,7 +613,7 @@ def guardar_historial(historial: dict, destino: Path = ARCHIVO_HISTORIAL) -> Non
     with destino.open("w", encoding="utf-8") as archivo:
         archivo.write(formatear_json(historial) + "\n")
     log.info(
-        "history.json actualizado: %d fechas, %d estaciones",
+        "history.json actualizado: %d fechas, %d puertos",
         len(historial["DATES"]),
         sum(len(rio.get("stations", [])) for rio in historial["RIVERS"]),
     )
@@ -611,7 +643,7 @@ def main() -> int:
         return 1
 
     # 2. Scraping. Cada fuente va en su propio try: si una se cae, seguimos con
-    #    la otra y las estaciones faltantes quedarán en null.
+    #    la otra y los puertos faltantes quedarán en null.
     registros: list[dict] = []
     for etiqueta, scraper in (("PNA", scrapear_pna), ("DMH", scrapear_dmh)):
         try:
@@ -627,14 +659,14 @@ def main() -> int:
 
     for registro in registros:
         log.info(
-            "  %-14s %-10s %s m (%s)",
+            "  %-20s %-12s %s m (%s)",
             registro["puerto"],
             registro["rio"] or "-",
             registro["altura_m"],
             registro["tendencia"],
         )
 
-    # 3. Volcado al historial: fecha de hoy + un valor por estación.
+    # 3. Volcado al historial: fecha de hoy + un valor por puerto.
     lecturas = {normalizar(r["puerto"]): r["altura_m"] for r in registros}
     indice = indice_del_dia(historial, date.today().isoformat())
     sincronizar_longitudes(historial)

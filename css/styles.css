@@ -8,10 +8,11 @@
   --border: rgba(6, 32, 51, 0.08);
   --grid: #D3E4ED;
   --base: #9BB8C6;
+  --pilcomayo: #6B4FA8;
+  --paraguay: #1A6B7A;
   --iguazu: #0B5CAB;
   --parana: #0D9B8A;
-  --paraguay: #1A6B7A;
-  --bermejo: #1478A8;
+  --uruguay: #1C7A4A;
   --crece-fg: #C07A12;
   --crece-bg: #FFF4E3;
   --baja-fg: #0B6FA8;
@@ -41,10 +42,11 @@
     --border: rgba(244, 250, 252, 0.08);
     --grid: #1A3342;
     --base: #2A4A5C;
+    --pilcomayo: #9B87E8;
+    --paraguay: #5EB4C4;
     --iguazu: #4BA3E6;
     --parana: #2EC4B0;
-    --paraguay: #5EB4C4;
-    --bermejo: #3DB5E0;
+    --uruguay: #4FC98A;
     --crece-fg: #F0B24A;
     --crece-bg: #2A1C08;
     --baja-fg: #5BB8E8;
@@ -70,10 +72,11 @@
   --border: rgba(244, 250, 252, 0.08);
   --grid: #1A3342;
   --base: #2A4A5C;
+  --pilcomayo: #9B87E8;
+  --paraguay: #5EB4C4;
   --iguazu: #4BA3E6;
   --parana: #2EC4B0;
-  --paraguay: #5EB4C4;
-  --bermejo: #3DB5E0;
+  --uruguay: #4FC98A;
   --crece-fg: #F0B24A;
   --crece-bg: #2A1C08;
   --baja-fg: #5BB8E8;
@@ -343,7 +346,8 @@ table.st tr.warned:hover td { background: var(--crece-bg); filter: brightness(.9
   color: var(--iguazu);
 }
 
-.ch-area { padding: 14px 12px 10px; height: 260px; position: relative; }
+/* Más alto que antes: el panel puede dibujar los 33 puertos a la vez. */
+.ch-area { padding: 14px 12px 10px; height: 340px; position: relative; }
 
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
 .rec-cell {
@@ -405,19 +409,18 @@ footer {
 }
 .footer-author { display: block; margin-top: 3px; }
 
-.corebe-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* Marca los puertos que no miden altura en metros (represas: caudal en m³/s). */
+.unit-tag {
+  display: inline-block;
   font-family: var(--ff-cond);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  background: rgba(20, 120, 168, .1);
-  color: var(--bermejo);
-  border: 1px solid rgba(20, 120, 168, .25);
+  letter-spacing: .04em;
+  background: var(--surf2);
+  color: var(--ink3);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 1px 6px;
+  padding: 0 5px;
   margin-left: 6px;
+  vertical-align: 1px;
 }
