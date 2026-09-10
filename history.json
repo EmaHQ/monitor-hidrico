@@ -1,5 +1,7 @@
 {
-  "DATES": [],
+  "DATES": [
+    "2026-09-10"
+  ],
   "RIVERS": [
     {
       "id": "pilcomayo",
@@ -10,7 +12,7 @@
           "n": "POZO HONDO",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [3.02]
         }
       ]
     },
@@ -23,67 +25,67 @@
           "n": "CÁCERES",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [1.08]
         },
         {
           "n": "BAHÍA NEGRA",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [3.36]
         },
         {
           "n": "MURTINHO",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [2.85]
         },
         {
           "n": "VALLEMI",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [2.55]
         },
         {
           "n": "CONCEPCIÓN",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [1.8]
         },
         {
           "n": "ASUNCIÓN",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [0.63]
         },
         {
           "n": "BOUVIER",
           "al": 6.0,
           "ev": 6.4,
-          "r": []
+          "r": [null]
         },
         {
           "n": "FORMOSA",
           "al": 7.8,
           "ev": 8.3,
-          "r": []
+          "r": [2.0]
         },
         {
           "n": "BERMEJO",
           "al": 6.5,
           "ev": 7.0,
-          "r": []
+          "r": [2.55]
         },
         {
           "n": "LAS PALMAS",
           "al": 6.5,
           "ev": 7.0,
-          "r": []
+          "r": [2.95]
         },
         {
           "n": "ISLA DEL CERRITO",
           "al": 6.2,
           "ev": 6.8,
-          "r": []
+          "r": [3.43]
         }
       ]
     },
@@ -97,19 +99,19 @@
           "u": "m³/s",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [43.24]
         },
         {
           "n": "ANDRESITO",
           "al": 10.5,
           "ev": 13.5,
-          "r": []
+          "r": [2.54]
         },
         {
           "n": "IGUAZÚ",
           "al": 25.0,
           "ev": 28.0,
-          "r": []
+          "r": [14.0]
         }
       ]
     },
@@ -123,73 +125,73 @@
           "u": "m³/s",
           "al": null,
           "ev": null,
-          "r": []
+          "r": [90.72]
         },
         {
           "n": "LIBERTAD",
           "al": 29.0,
           "ev": 31.0,
-          "r": []
+          "r": [13.2]
         },
         {
           "n": "POSADAS",
           "al": 11.0,
           "ev": 12.0,
-          "r": []
+          "r": [10.04]
         },
         {
           "n": "ITUZAINGÓ",
           "al": 3.5,
           "ev": 4.0,
-          "r": []
+          "r": [1.6]
         },
         {
           "n": "ITÁ IBATÉ",
           "al": 7.0,
           "ev": 7.5,
-          "r": []
+          "r": [2.26]
         },
         {
           "n": "ITATÍ",
           "al": 6.8,
           "ev": 7.5,
-          "r": []
+          "r": [3.46]
         },
         {
           "n": "PASO DE LA PATRIA",
           "al": 6.5,
           "ev": 7.0,
-          "r": []
+          "r": [3.2]
         },
         {
           "n": "CORRIENTES",
           "al": 6.5,
           "ev": 7.0,
-          "r": []
+          "r": [3.14]
         },
         {
           "n": "BARRANQUERAS",
           "al": 6.0,
           "ev": 6.5,
-          "r": []
+          "r": [3.16]
         },
         {
           "n": "EMPEDRADO",
           "al": 6.5,
           "ev": 7.0,
-          "r": []
+          "r": [3.1]
         },
         {
           "n": "GOYA",
           "al": 5.2,
           "ev": 5.7,
-          "r": []
+          "r": [3.32]
         },
         {
           "n": "ESQUINA",
           "al": 5.0,
           "ev": 5.4,
-          "r": []
+          "r": [2.71]
         }
       ]
     },
@@ -202,37 +204,37 @@
           "n": "EL SOBERBIO",
           "al": 11.0,
           "ev": 13.0,
-          "r": []
+          "r": [3.0]
         },
         {
           "n": "SAN JAVIER",
           "al": 8.0,
           "ev": 10.0,
-          "r": []
+          "r": [2.5]
         },
         {
           "n": "SANTO TOMÉ",
           "al": 11.5,
           "ev": 12.5,
-          "r": []
+          "r": [4.12]
         },
         {
           "n": "ALVEAR",
           "al": 9.5,
           "ev": 11.0,
-          "r": []
+          "r": [5.6]
         },
         {
           "n": "PASO DE LOS LIBRES",
           "al": 7.5,
           "ev": 8.5,
-          "r": []
+          "r": [5.3]
         },
         {
           "n": "MONTE CASEROS",
           "al": 7.5,
           "ev": 8.5,
-          "r": []
+          "r": [4.4]
         }
       ]
     }
