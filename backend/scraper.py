@@ -16,6 +16,10 @@ Cada corrida agrega la fecha de hoy a DATES (o reutiliza la existente si ya
 corrió hoy) y escribe un valor por estación en su serie `r`: el nivel scrapeado
 o null si esa estación no vino en el scraping.
 
+La web de la PNA geobloquea los rangos de IP de GitHub Actions, así que en CI la
+descarga se hace a través de ScraperAPI. Se activa sola si existe la variable de
+entorno SCRAPER_API_KEY; sin ella (por ejemplo en tu máquina) va directo.
+
 Uso:
     python backend/scraper.py
 """
@@ -24,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 import unicodedata
@@ -58,6 +63,22 @@ HEADERS = {
 TIMEOUT = 45          # el sitio del DMH tarda ~20-40 s en responder
 INTENTOS = 3          # reintentos por fuente antes de darla por caída
 ESPERA_ENTRE_INTENTOS = 3  # segundos (se multiplica por el nº de intento)
+
+# ---------------------------------------------------------------------------
+# ScraperAPI (sólo para la PNA)
+# ---------------------------------------------------------------------------
+# La PNA rechaza las IP de los runners de GitHub Actions. ScraperAPI hace de
+# proxy: le pasamos api_key + url y nos devuelve el HTML de la página original.
+#
+# Se usa únicamente si SCRAPER_API_KEY está definida y no está vacía. Ojo: en
+# GitHub Actions, si el secreto no existe la variable llega como cadena vacía,
+# así que se evalúa por contenido y no por presencia.
+#
+# El DMH de Paraguay no bloquea nada, por eso va siempre directo y no gasta
+# créditos de la API.
+URL_SCRAPER_API = "http://api.scraperapi.com"
+SCRAPER_API_KEY = (os.getenv("SCRAPER_API_KEY") or "").strip()
+TIMEOUT_SCRAPER_API = 70  # el proxy reintenta por su cuenta y puede tardar más
 
 # ---------------------------------------------------------------------------
 # Puertos que queremos extraer
@@ -209,13 +230,46 @@ def celda(celdas: list, indices: dict[str, int], clave: str) -> str | None:
     return celdas[i].get_text(" ", strip=True)
 
 
-def descargar(url: str, etiqueta: str) -> str:
-    """GET con headers, timeout y reintentos con espera incremental."""
+def sin_credenciales(texto: str) -> str:
+    """Tapa la API key para que no aparezca en los logs.
+
+    requests incluye la URL completa en sus mensajes de error, y esa URL lleva
+    el api_key como parámetro. Los logs de Actions son públicos en repos
+    públicos, así que la reemplazamos antes de imprimir cualquier cosa.
+    """
+    if SCRAPER_API_KEY:
+        return texto.replace(SCRAPER_API_KEY, "***")
+    return texto
+
+
+def descargar(url: str, etiqueta: str, via_scraperapi: bool = False) -> str:
+    """GET con headers, timeout y reintentos con espera incremental.
+
+    Con `via_scraperapi=True` la descarga sale por ScraperAPI, pero sólo si hay
+    una SCRAPER_API_KEY cargada; si no la hay, cae a la petición directa de
+    siempre (el caso de correr el script en local).
+    """
+    usar_proxy = via_scraperapi and bool(SCRAPER_API_KEY)
+
+    if usar_proxy:
+        # ScraperAPI recibe la URL original como parámetro y devuelve su HTML.
+        # No le mandamos HEADERS: el proxy arma su propio fingerprint de
+        # navegador (y sin keep_headers ignoraría los nuestros de todos modos).
+        destino, parametros = URL_SCRAPER_API, {"api_key": SCRAPER_API_KEY, "url": url}
+        cabeceras, tiempo_limite = None, TIMEOUT_SCRAPER_API
+    else:
+        destino, parametros = url, None
+        cabeceras, tiempo_limite = HEADERS, TIMEOUT
+        if via_scraperapi:
+            log.info("[%s] sin SCRAPER_API_KEY: se descarga directo", etiqueta)
+
+    ruta = f"{url} (vía ScraperAPI)" if usar_proxy else url
     ultimo_error: Exception | None = None
+
     for intento in range(1, INTENTOS + 1):
         try:
-            log.info("[%s] descargando %s (intento %d/%d)", etiqueta, url, intento, INTENTOS)
-            respuesta = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+            log.info("[%s] descargando %s (intento %d/%d)", etiqueta, ruta, intento, INTENTOS)
+            respuesta = requests.get(destino, params=parametros, headers=cabeceras, timeout=tiempo_limite)
             respuesta.raise_for_status()
             # Algunas páginas oficiales no declaran charset: si requests no
             # detecta encoding, usamos el que deduce del contenido.
@@ -224,10 +278,11 @@ def descargar(url: str, etiqueta: str) -> str:
             return respuesta.text
         except requests.RequestException as error:
             ultimo_error = error
-            log.warning("[%s] falló el intento %d: %s", etiqueta, intento, error)
+            log.warning("[%s] falló el intento %d: %s", etiqueta, intento, sin_credenciales(str(error)))
             if intento < INTENTOS:
                 time.sleep(ESPERA_ENTRE_INTENTOS * intento)
-    raise RuntimeError(f"No se pudo descargar {etiqueta} ({url})") from ultimo_error
+
+    raise RuntimeError(f"No se pudo descargar {etiqueta} ({ruta})") from ultimo_error
 
 
 def marca_de_tiempo() -> str:
@@ -251,7 +306,8 @@ def scrapear_pna() -> list[dict]:
     todos los <tr> de esa tabla. El <tr> del <thead> se usa para mapear
     columnas por nombre y el resto son los datos.
     """
-    html = descargar(URL_PNA, "PNA")
+    # Única fuente que pasa por ScraperAPI (geobloqueo desde GitHub Actions).
+    html = descargar(URL_PNA, "PNA", via_scraperapi=True)
     soup = BeautifulSoup(html, "html.parser")
 
     # Buscamos la tabla por su clase propia; si la cambian, caemos a la
@@ -348,6 +404,7 @@ def scrapear_dmh() -> list[dict]:
     '-3 cm'; convertimos la variación a metros para que sea comparable con la
     de la PNA.
     """
+    # Sin geobloqueo: siempre directo, para no gastar créditos de ScraperAPI.
     html = descargar(URL_DMH, "DMH")
     soup = BeautifulSoup(html, "html.parser")
 
@@ -539,6 +596,10 @@ def main() -> int:
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
+    )
+    log.info(
+        "Descarga de la PNA: %s",
+        "ScraperAPI" if SCRAPER_API_KEY else "directa (sin SCRAPER_API_KEY)",
     )
 
     # 1. Historial existente. Si no se puede leer, cortamos antes de scrapear:

@@ -25,6 +25,10 @@ jobs:
         run: pip install requests beautifulsoup4
 
       - name: Ejecutar el Scraper
+        env:
+          # La PNA bloquea las IP de los runners: el scraper detecta esta
+          # variable y sale por ScraperAPI. En local, sin la variable, va directo.
+          SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
         run: python backend/scraper.py
 
       - name: Guardar los datos nuevos
