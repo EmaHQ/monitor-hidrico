@@ -5,6 +5,9 @@ let DATE_LBL=[];   // etiquetas cortas para los gráficos ('3 ago'), derivadas d
 let RIVERS=[];     // ríos con sus puertos (clave "stations") y sus series r[]
 
 const ARCHIVO_HISTORIAL='./history.json';
+// Ventana del panel de máximos: se evalúan los últimos 90 registros diarios,
+// o el historial completo si todavía es más corto.
+const VENTANA_MAXIMOS=90;
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 const CS = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -39,10 +42,19 @@ function var24(r){
   const [p,l]=lastTwo(r);
   return (l===null||p===null) ? null : l-p;
 }
-function maxR(r){
-  const v=r.map((x,i)=>({x,i})).filter(o=>o.x!==null);
-  if(!v.length) return null;
-  return v.reduce((b,o)=>o.x>b.x?o:b);
+// Máximo de una serie dentro de una ventana de los últimos `dias` registros.
+// Devuelve {x, i} con el índice absoluto, para poder buscar la fecha en DATES,
+// o null si en esa ventana no hay ninguna lectura. Si la serie es más corta
+// que la ventana, se recorre entera.
+function maxR(r, dias){
+  const desde=dias>0 ? Math.max(0, r.length-dias) : 0;
+  let mejor=null;
+  for(let i=desde;i<r.length;i++){
+    const x=r[i];
+    if(typeof x!=='number'||!isFinite(x)) continue;  // saltea null, undefined y huecos
+    if(!mejor||x>mejor.x) mejor={x,i};
+  }
+  return mejor;
 }
 function spark(r, color){
   const vals = r.map(v=>v===null?NaN:v);
@@ -296,14 +308,30 @@ function renderToggles(){
     buildChart();
   });
 }
+// Una tarjeta por puerto con su pico dentro de la ventana de los últimos
+// VENTANA_MAXIMOS días. Los puertos sin ninguna lectura en la ventana no
+// generan tarjeta.
 function renderRecords(){
+  const ventana=Math.min(VENTANA_MAXIMOS,DATES.length);
+  const titulo=document.getElementById('js-records-title');
+  if(titulo) titulo.textContent=ventana
+    ? `Máximos de los últimos ${ventana} días registrados`
+    : 'Máximos del período registrado';
+
   let h='';
   for(const rv of RIVERS) for(const s of rv.stations){
-    const mx=maxR(s.r);if(!mx)continue;
+    const mx=maxR(s.r,VENTANA_MAXIMOS);
+    if(!mx) continue;
     const[,m,d]=DATES[mx.i].split('-');
-    h+=`<div class="rec-cell"><div class="rec-stn">${s.n}</div><div class="rec-rv">${rv.name}</div><div class="rec-val">${mx.x.toFixed(2)} ${unidadDe(s)}</div><div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div></div>`;
+    h+=`<div class="rec-cell">`+
+       `<div class="rec-stn">${s.n}</div>`+
+       `<div class="rec-rv">${rv.name}</div>`+
+       `<div class="rec-val">${mx.x.toFixed(2)} ${unidadDe(s)}</div>`+
+       `<div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div>`+
+       `</div>`;
   }
-  document.getElementById('js-records').innerHTML=h;
+  document.getElementById('js-records').innerHTML=
+    h||`<div class="rec-empty">Todavía no hay lecturas registradas.</div>`;
 }
 const histCharts = {};
 function buildHistChart(rv, canvasId, visibleSet) {

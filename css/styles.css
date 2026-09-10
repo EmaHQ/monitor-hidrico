@@ -350,6 +350,7 @@ table.st tr.warned:hover td { background: var(--crece-bg); filter: brightness(.9
 .ch-area { padding: 14px 12px 10px; height: 340px; position: relative; }
 
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+.rec-empty { padding: 14px 16px; font-size: 12px; color: var(--ink3); }
 .rec-cell {
   padding: 12px 14px;
   border-right: 1px solid var(--border);
