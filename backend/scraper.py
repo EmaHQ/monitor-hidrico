@@ -10,11 +10,14 @@ Fuentes:
 En vez de escribir una "foto" del día, el script mantiene la serie histórica
 completa en history.json (raíz del proyecto), con la forma:
 
-    {"DATES": ["2026-08-03", ...], "RIVERS": [{..., "stations": [{"n", "al", "ev", "r"}]}]}
+    {"last_update": "2026-09-10 14:05:33",
+     "DATES": ["2026-08-03", ...],
+     "RIVERS": [{..., "stations": [{"n", "al", "ev", "r"}]}]}
 
 Cada corrida agrega la fecha de hoy a DATES (o reutiliza la existente si ya
 corrió hoy) y escribe un valor por puerto en su serie `r`: el nivel scrapeado
-o null si ese puerto no vino en el scraping.
+o null si ese puerto no vino en el scraping. `last_update` guarda el momento en
+que terminó la corrida, en hora argentina.
 
 La web de la PNA geobloquea los rangos de IP de GitHub Actions, así que en CI la
 descarga se hace a través de ScraperAPI. Se activa sola si existe la variable de
@@ -32,7 +35,7 @@ import os
 import re
 import time
 import unicodedata
-from datetime import date, datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -47,6 +50,12 @@ ARCHIVO_HISTORIAL = RAIZ_PROYECTO / "history.json"
 
 URL_PNA = "https://contenidosweb.prefecturanaval.gob.ar/alturas/"
 URL_DMH = "https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php"
+
+# Toda fecha y hora que se escriba en history.json va en hora argentina. Es
+# importante fijar la zona: los runners de GitHub Actions corren en UTC y, sin
+# esto, el tablero mostraría la actualización tres horas adelantada. Argentina
+# no aplica horario de verano, así que un offset fijo alcanza.
+ZONA_AR = timezone(timedelta(hours=-3))
 
 # Headers de navegador real: sin User-Agent algunos servidores oficiales
 # responden 403 o directamente cortan la conexión.
@@ -318,7 +327,17 @@ def descargar(url: str, etiqueta: str, via_scraperapi: bool = False) -> str:
 
 
 def marca_de_tiempo() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    return datetime.now(ZONA_AR).isoformat(timespec="seconds")
+
+
+def sello_de_actualizacion() -> str:
+    """Momento en que el scraper termina de escribir el historial (hora AR)."""
+    return datetime.now(ZONA_AR).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def hoy_en_argentina() -> str:
+    """Fecha de hoy (YYYY-MM-DD) según la hora argentina, no la del runner."""
+    return datetime.now(ZONA_AR).date().isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -610,10 +629,20 @@ def formatear_json(datos: dict) -> str:
 
 
 def guardar_historial(historial: dict, destino: Path = ARCHIVO_HISTORIAL) -> None:
+    # "last_update" se reescribe en cada corrida y va primero en el archivo: es
+    # el momento exacto en que terminó esta ejecución, y el front-end lo usa
+    # para el cartel de la esquina superior derecha. Se arma un dict nuevo en
+    # vez de asignar la clave para que quede al principio incluso la primera
+    # vez, sin perder el resto de las claves ni su orden.
+    sello = sello_de_actualizacion()
+    datos = {"last_update": sello}
+    datos.update({k: v for k, v in historial.items() if k != "last_update"})
+
     with destino.open("w", encoding="utf-8") as archivo:
-        archivo.write(formatear_json(historial) + "\n")
+        archivo.write(formatear_json(datos) + "\n")
     log.info(
-        "history.json actualizado: %d fechas, %d puertos",
+        "history.json actualizado (%s): %d fechas, %d puertos",
+        sello,
         len(historial["DATES"]),
         sum(len(rio.get("stations", [])) for rio in historial["RIVERS"]),
     )
@@ -668,7 +697,7 @@ def main() -> int:
 
     # 3. Volcado al historial: fecha de hoy + un valor por puerto.
     lecturas = {normalizar(r["puerto"]): r["altura_m"] for r in registros}
-    indice = indice_del_dia(historial, date.today().isoformat())
+    indice = indice_del_dia(historial, hoy_en_argentina())
     sincronizar_longitudes(historial)
     registrar_lecturas(historial, indice, lecturas)
     guardar_historial(historial)

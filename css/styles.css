@@ -132,6 +132,15 @@ body {
   line-height: 1.1;
 }
 .hdr-hour { font-size: 11px; color: var(--ink3); }
+.src-link {
+  color: var(--iguazu);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .12s;
+}
+.src-link:hover,
+.src-link:focus-visible { border-bottom-color: currentColor; }
 
 .alert-strip {
   background: var(--alert-bg);

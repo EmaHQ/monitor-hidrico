@@ -3,12 +3,14 @@
 let DATES=[];      // fechas ISO, una por columna de las series
 let DATE_LBL=[];   // etiquetas cortas para los gráficos ('3 ago'), derivadas de DATES
 let RIVERS=[];     // ríos con sus puertos (clave "stations") y sus series r[]
+let LAST_UPDATE=null;  // sello del scraper, 'YYYY-MM-DD HH:MM:SS' en hora AR
 
 const ARCHIVO_HISTORIAL='./history.json';
 // Ventana del panel de máximos: se evalúan los últimos 90 registros diarios,
 // o el historial completo si todavía es más corto.
 const VENTANA_MAXIMOS=90;
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MESES_MAY=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
 const CS = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -22,8 +24,17 @@ const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
 function fmt(v){ return v===null||v===undefined ? 'S/D' : v.toFixed(2); }
 function fmtISO(iso){
   const [y,m,d] = iso.split('-');
-  const M=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-  return `${parseInt(d)} ${M[+m-1]} ${y}`;
+  return `${parseInt(d)} ${MESES_MAY[+m-1]} ${y}`;
+}
+// Sello del scraper -> '10 SEP 2026 • 14:05 hs'. Se parsea con regex y no con
+// new Date(): el formato 'YYYY-MM-DD HH:MM:SS' (con espacio) no es estándar y
+// algunos navegadores lo rechazan. Devuelve null si el sello no tiene la forma
+// esperada, para poder caer al fallback.
+function fmtSello(sello){
+  const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(sello||''));
+  if(!m) return null;
+  const [,anio,mes,dia,hh,mm]=m;
+  return `${+dia} ${MESES_MAY[+mes-1]} ${anio} • ${hh}:${mm} hs`;
 }
 function lastTwo(r){
   const v = r.map((x,i)=>({x,i})).filter(o=>o.x!==null);
@@ -394,11 +405,13 @@ function renderHistorical() {
     if(ds){ds.hidden=!ds.hidden;ch.update();}
   });
 }
-// history.json puede estar recién inicializado (DATES vacío) hasta que corra
-// el scraper por primera vez.
+// Cartel de la esquina superior derecha. Muestra cuándo corrió el scraper por
+// última vez; si el archivo todavía no tiene "last_update" (historial viejo o
+// recién inicializado), cae a la última fecha registrada, sin hora.
 function renderDate(){
   document.getElementById('js-date').textContent=
-    DATES.length?fmtISO(DATES[DATES.length-1]):'SIN REGISTROS';
+    fmtSello(LAST_UPDATE)
+    || (DATES.length?fmtISO(DATES[DATES.length-1]):'SIN REGISTROS');
 }
 
 // --- Carga de datos e inicialización ---------------------------------------
@@ -442,6 +455,7 @@ async function init(){
 
   DATES=datos.DATES;
   RIVERS=datos.RIVERS;
+  LAST_UPDATE=datos.last_update||null;
   DATE_LBL=DATES.map(etiquetaCorta);
 
   renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();
