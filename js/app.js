@@ -132,6 +132,19 @@ function fluctuacion(s){
   if(v<UMBRAL_BAJANTE) return 'bajante';
   return null;
 }
+// Clase de fondo de la fila: primero el estado oficial; si el puerto está
+// estable, recién ahí entra la fluctuación brusca. Sin coincidencia, sin clase.
+function claseFila(s){
+  const oficial=estadoOficial(s);
+  if(oficial==='evacuacion') return 'c-evacuacion';
+  if(oficial==='alerta') return 'c-alerta';
+  if(oficial==='estable'){
+    const f=fluctuacion(s);
+    if(f==='crecida') return 'c-crecida';
+    if(f==='bajante') return 'c-bajante';
+  }
+  return '';
+}
 
 // Recorre los puertos de todos los ríos, en el orden de history.json.
 function cadaPuerto(fn){
@@ -258,26 +271,21 @@ function renderRivers(){
     let rows='';
     for(const s of rv.stations){
       const t=tc(s.r), v=var24(s.r);
-      const cur=lastTwo(s.r)[1];
-      const aboveEvac=s.ev!==null&&cur!==null&&cur>=s.ev;
-      const aboveAlert=s.al!==null&&cur!==null&&cur>=s.al;
-      const nearAlert=!aboveAlert&&s.al!==null&&cur!==null&&cur>=s.al*0.9;
+      const oficial=estadoOficial(s);
       const u=unidadDe(s);
-      const bigVar=esAltura(s)&&v!==null&&Math.abs(v)>=1;
-      const isAl=aboveAlert||aboveEvac;
       const vStr=v===null?'—':fmtVar(v)+' '+u;
-      const vCls=isAl?'va':v===null?'nd':v>0?'vu':v<0?'vd':'ve';
+      const vCls=(oficial==='evacuacion'||oficial==='alerta')?'va':v===null?'nd':v>0?'vu':v<0?'vd':'ve';
       const tlbl={C:'CRECE',B:'BAJA',E:'ESTABLE',nd:'S/D'}[t];
       const tblVals=tblIdx.map(i=>s.r[i]);
-      const rowCls=aboveEvac||aboveAlert?'alerted':nearAlert||bigVar?'warned':'';
+      const rowCls=claseFila(s);
       const alTd=s.al!==null
-        ? `<td class="td-num ${aboveEvac||aboveAlert?'va':''}">${formatoAR(s.al)}</td>`
+        ? `<td class="td-num ${oficial==='evacuacion'||oficial==='alerta'?'va':''}">${formatoAR(s.al)}</td>`
         : `<td class="td-num nd">—</td>`;
       const evTd=s.ev!==null
-        ? `<td class="td-num ${aboveEvac?'va':''}">${formatoAR(s.ev)}</td>`
+        ? `<td class="td-num ${oficial==='evacuacion'?'va':''}">${formatoAR(s.ev)}</td>`
         : `<td class="td-num nd">—</td>`;
       const uTag=esAltura(s)?'':`<span class="unit-tag">${u}</span>`;
-      rows+=`<tr class="${rowCls}">
+      rows+=`<tr${rowCls?` class="${rowCls}"`:''}>
         <td class="td-nm">${s.n}${uTag}</td>
         <td class="td-sp">${spark(s.r,col)}</td>
         ${tblVals.map(val=>`<td class="td-num ${val===null?'nd':''}">${fmt(val)}</td>`).join('')}

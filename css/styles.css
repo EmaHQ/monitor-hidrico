@@ -413,10 +413,18 @@ table.st td {
 }
 table.st tr:last-child td { border-bottom: none; }
 table.st tr:hover td { background: var(--surf2); }
-table.st tr.alerted td { background: var(--alert-bg); }
-table.st tr.warned td { background: var(--crece-bg); }
-table.st tr.alerted:hover td { background: var(--alert-bg); filter: brightness(.97); }
-table.st tr.warned:hover td { background: var(--crece-bg); filter: brightness(.97); }
+table.st tr.c-evacuacion td,
+table.st tr.c-alerta td,
+table.st tr.c-crecida td,
+table.st tr.c-bajante td {
+  background: color-mix(in srgb, var(--c) 11%, var(--surf));
+}
+table.st tr.c-evacuacion:hover td,
+table.st tr.c-alerta:hover td,
+table.st tr.c-crecida:hover td,
+table.st tr.c-bajante:hover td {
+  background: color-mix(in srgb, var(--c) 16%, var(--surf));
+}
 
 .td-nm {
   font-family: var(--ff-cond);
