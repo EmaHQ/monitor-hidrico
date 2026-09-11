@@ -159,6 +159,26 @@ body {
 .src-link:hover,
 .src-link:focus-visible { border-bottom-color: currentColor; }
 
+.btn-leeme {
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--iguazu) 40%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--iguazu) 8%, transparent);
+  color: var(--iguazu);
+  font-family: var(--ff-cond);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.btn-leeme:hover, .btn-leeme:focus-visible {
+  border-color: var(--iguazu);
+  background: color-mix(in srgb, var(--iguazu) 16%, transparent);
+  outline: none;
+}
+
 .alert-strip {
   background: var(--alert-bg);
   border-bottom: 2px solid var(--alert-bd);
@@ -594,3 +614,102 @@ footer {
   margin-left: 6px;
   vertical-align: 1px;
 }
+
+/* ---------------------------------------------------------------------------
+   Modal informativo (LÉEME)
+   --------------------------------------------------------------------------- */
+.hidden { display: none !important; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(3, 16, 26, .68);
+  /* El soporte de backdrop-filter no es universal; si falla, el fondo oscuro
+     de arriba ya alcanza para separar el modal del tablero. */
+  backdrop-filter: blur(2px);
+}
+.modal-content {
+  background: var(--surf);
+  color: var(--ink1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+  width: 100%;
+  max-width: 600px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+  flex-shrink: 0;
+}
+.modal-titulo {
+  margin: 0;
+  font-family: var(--ff-cond);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink1);
+}
+.modal-x {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surf);
+  color: var(--ink2);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.modal-x:hover, .modal-x:focus-visible {
+  border-color: var(--evacuacion);
+  color: var(--evacuacion);
+  outline: none;
+}
+
+/* La caja no crece más que la pantalla: el que scrollea es el cuerpo. */
+.modal-body {
+  padding: 4px 18px 18px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--ink2);
+}
+.modal-body section { margin-top: 16px; }
+.modal-body h3 {
+  margin: 0 0 5px;
+  font-family: var(--ff-cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink1);
+}
+.modal-body p { margin: 0 0 7px; }
+.modal-body strong { color: var(--ink1); }
+.modal-body a { color: var(--iguazu); text-decoration: underline; text-underline-offset: 2px; }
+.modal-body a:hover { filter: brightness(1.2); }
+.modal-sub { color: var(--ink3); font-size: 12px; margin-top: 8px; }
+.modal-ref { margin: 4px 0 0; padding-left: 20px; }
+.modal-ref li { margin-bottom: 3px; }
+.ref-nom { color: var(--c); font-weight: 600; }
+
+/* Evita que el tablero de atrás scrollee mientras el modal está abierto. */
+body.modal-abierto { overflow: hidden; }

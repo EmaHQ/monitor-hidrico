@@ -25,6 +25,8 @@
            target="_blank" rel="noopener noreferrer"
            title="Dirección de Meteorología e Hidrología de Paraguay">DMH</a>
       </div>
+      <button type="button" class="btn-leeme" id="js-abrir-leeme"
+              aria-haspopup="dialog" aria-controls="modal-leeme">ℹ️ LÉEME (Acerca de)</button>
     </div>
   </header>
 
@@ -83,6 +85,74 @@
     Fuentes: Prefectura Naval Argentina (PNA) | Dirección de Meteorología e Hidrología de Paraguay (DMH)
     <span class="footer-author">Autora: Ayelén Montserrat Núñez</span>
   </footer>
+
+  <!-- Modal informativo. Lo abre el botón LÉEME de la cabecera; toda la lógica
+       (abrir, cerrar, foco y tecla Escape) está en app.js. -->
+  <div class="modal-overlay hidden" id="modal-leeme" role="dialog" aria-modal="true"
+       aria-labelledby="js-leeme-titulo">
+    <div class="modal-content">
+      <div class="modal-hd">
+        <h2 class="modal-titulo" id="js-leeme-titulo">Acerca del Monitor Hídrico</h2>
+        <button type="button" class="modal-x" id="js-cerrar-leeme"
+                aria-label="Cerrar la ventana">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <section>
+          <h3>Idea original</h3>
+          <p>La interfaz y el concepto de este tablero fueron creados por
+            <strong>Ayelén Montserrat Núñez</strong>. Podés ver el proyecto original en
+            <a href="https://ayelenmontserrat-prog.github.io/Monitor-H-drico/"
+               target="_blank" rel="noopener noreferrer">ayelenmontserrat-prog.github.io/Monitor-H-drico</a>.
+            Esta versión parte de ese trabajo y lo automatiza y expande: suma puertos,
+            guarda la serie histórica y ya no depende de cargar los datos a mano.</p>
+        </section>
+
+        <section>
+          <h3>Fuentes de datos</h3>
+          <p>Un robot (<em>scraper</em>) entra varias veces por día a las webs oficiales de la
+            <a href="https://contenidosweb.prefecturanaval.gob.ar/alturas/"
+               target="_blank" rel="noopener noreferrer">Prefectura Naval Argentina (PNA)</a> y de la
+            <a href="https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php"
+               target="_blank" rel="noopener noreferrer">Dirección de Meteorología e Hidrología de Paraguay (DMH)</a>,
+            lee las tablas de alturas y las guarda automáticamente. La fecha y hora que ves
+            arriba a la derecha es la de la última corrida.</p>
+        </section>
+
+        <section>
+          <h3>Referencias de colores</h3>
+          <p class="modal-sub">Estado oficial, según los umbrales que publica cada organismo:</p>
+          <ul class="modal-ref">
+            <li>🔴 <span class="c-evacuacion ref-nom">Evacuación</span> — el puerto superó su nivel de evacuación.</li>
+            <li>🟡 <span class="c-alerta ref-nom">Alerta</span> — superó el nivel de alerta, pero todavía no el de evacuación.</li>
+            <li>🟢 <span class="c-estable ref-nom">Estable</span> — por debajo de los umbrales, o sin umbral publicado.</li>
+          </ul>
+          <p class="modal-sub">Variación brusca en las últimas 24 horas:</p>
+          <ul class="modal-ref">
+            <li>🔵 <span class="c-crecida ref-nom">Crecida</span> — subió más de 1 metro.</li>
+            <li>🟤 <span class="c-bajante ref-nom">Bajante</span> — bajó más de 1,50 metros.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Paneles e interactividad</h3>
+          <p>El tablero es interactivo: al hacer clic en cualquier alerta, tarjeta de resumen
+            o subtítulo de grupo, el gráfico principal se filtra para mostrar sólo esos puertos
+            y la pantalla baja sola hasta él. Para volver a ver todos, usá la cruz del indicador
+            de filtro o el botón <strong>TODOS LOS PUERTOS</strong>.</p>
+        </section>
+
+        <section>
+          <h3>Récords históricos</h3>
+          <p>El panel de máximos no guarda un récord escrito: lo calcula cada vez, recorriendo
+            los últimos 90 días de mediciones y quedándose con el valor más alto de cada puerto.</p>
+          <p id="js-leeme-inicio">El registro de esta base de datos arrancó el 10 de septiembre
+            de 2026, así que la ventana todavía es más corta que 90 días y va a ir creciendo
+            día a día hasta completarlos.</p>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/app.js"></script>

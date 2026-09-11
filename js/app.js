@@ -627,7 +627,64 @@ function mostrarErrorDeCarga(error){
   console.error('[monitor-hidrico] fallo la carga del historial:', error);
 }
 
+// --- Modal informativo (LÉEME) ----------------------------------------------
+
+let disparadorDelModal=null;  // a quién le devolvemos el foco al cerrar
+
+function abrirModal(){
+  const modal=document.getElementById('modal-leeme');
+  disparadorDelModal=document.activeElement;
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-abierto');
+  // El foco entra al modal para que Escape y el tabulado funcionen sin tener
+  // que clickear primero dentro de la caja.
+  document.getElementById('js-cerrar-leeme').focus();
+}
+function cerrarModal(){
+  const modal=document.getElementById('modal-leeme');
+  if(modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  document.body.classList.remove('modal-abierto');
+  if(disparadorDelModal&&disparadorDelModal.focus) disparadorDelModal.focus();
+  disparadorDelModal=null;
+}
+
+function conectarModal(){
+  const modal=document.getElementById('modal-leeme');
+  document.getElementById('js-abrir-leeme').addEventListener('click',abrirModal);
+  document.getElementById('js-cerrar-leeme').addEventListener('click',cerrarModal);
+  // Clic en el fondo, no en la caja: e.target es el overlay sólo si el clic
+  // cayó fuera de .modal-content.
+  modal.addEventListener('click',e=>{ if(e.target===modal) cerrarModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') cerrarModal(); });
+}
+
+// La fecha de inicio del historial sale del propio archivo, así el texto del
+// modal no envejece. Si todavía no hay datos queda el texto fijo del HTML.
+function actualizarInicioDelRegistro(){
+  const el=document.getElementById('js-leeme-inicio');
+  if(!el||!DATES.length) return;
+  const dias=DATES.length;
+  const faltan=VENTANA_MAXIMOS-dias;
+  el.textContent=`El registro de esta base de datos arrancó el ${fmtLargo(DATES[0])} `+
+    `y hoy acumula ${dias} ${dias===1?'día':'días'} de mediciones. `+
+    (faltan>0
+      ? `La ventana va a seguir creciendo día a día hasta completar los 90 días (faltan ${faltan}).`
+      : `Ya cubre la ventana completa de ${VENTANA_MAXIMOS} días.`);
+}
+// '2026-09-10' -> '10 de septiembre de 2026'
+function fmtLargo(iso){
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+    'septiembre','octubre','noviembre','diciembre'];
+  const [y,m,d]=iso.split('-');
+  return `${+d} de ${meses[+m-1]} de ${y}`;
+}
+
 async function init(){
+  // El LÉEME no depende de los datos: se conecta antes de pedir el historial
+  // para que siga abriéndose aunque el fetch falle.
+  conectarModal();
+
   let datos;
   try{
     datos=await cargarHistorial();
@@ -646,6 +703,7 @@ async function init(){
   renderAlertasOficiales();renderFluctuacion();renderStats();
   renderRivers();renderHistorical();
   renderToggles();buildChart();buildCaudalChart();renderRecords();
+  actualizarInicioDelRegistro();
   conectarFiltros();
 }
 
