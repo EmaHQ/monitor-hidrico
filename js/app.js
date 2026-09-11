@@ -9,6 +9,10 @@ const ARCHIVO_HISTORIAL='./history.json';
 // Ventana del panel de máximos: se evalúan los últimos 90 registros diarios,
 // o el historial completo si todavía es más corto.
 const VENTANA_MAXIMOS=90;
+// Umbrales de fluctuación en 24 hs, en metros. Son asimétricos a propósito:
+// una crecida de 1 m ya es noticia, una bajante recién a partir de 1,50 m.
+const UMBRAL_CRECIDA=1.00;
+const UMBRAL_BAJANTE=-1.50;
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MESES_MAY=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
@@ -92,41 +96,146 @@ function spark(r, color){
     <path d="${path}" stroke="${color}" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
     ${dot}</svg>`;
 }
-function renderAlerts(){
-  const el=document.getElementById('js-alerts');
-  const evacs=[],alerts=[],bigVars=[];
-  for(const rv of RIVERS) for(const s of rv.stations){
-    const cur=lastTwo(s.r)[1];
-    const v=var24(s.r);
-    if(s.ev!==null&&cur!==null&&cur>=s.ev) evacs.push({n:s.n,cur,ev:s.ev});
-    else if(s.al!==null&&cur!==null&&cur>=s.al) alerts.push({n:s.n,cur,al:s.al});
-    // El umbral de 1 m/24h sólo aplica a alturas: un salto de 1 m³/s de caudal
-    // no significa nada.
-    else if(esAltura(s)&&v!==null&&Math.abs(v)>=1) bigVars.push({n:s.n,v});
-  }
-  if(!evacs.length&&!alerts.length&&!bigVars.length){el.hidden=true;return;}
-  el.hidden=false;
-  let html='';
-  if(evacs.length) html+='<span class="alert-lbl" style="color:#8B0000">🚨 EVACUACIÓN</span>'+
-    evacs.map(h=>`<span class="alert-pill" style="border-color:#8B0000;color:#8B0000">${h.n} ${h.cur.toFixed(2)} m (evac: ${h.ev} m)</span>`).join('');
-  if(alerts.length) html+=(html?'&nbsp;&nbsp;':'')+'<span class="alert-lbl">⚠ ALERTA</span>'+
-    alerts.map(h=>`<span class="alert-pill">${h.n} ${h.cur.toFixed(2)} m (alerta: ${h.al} m)</span>`).join('');
-  if(bigVars.length) html+=(html?'&nbsp;&nbsp;':'')+'<span class="alert-lbl">↕ Var &gt;1 m/24h</span>'+
-    bigVars.map(h=>`<span class="alert-pill">${h.n} ${h.v>0?'+':''}${h.v.toFixed(2)} m</span>`).join('');
-  el.innerHTML=html;
+
+// --- Estados de cada puerto -------------------------------------------------
+
+// Estado oficial: se compara la última lectura válida contra los umbrales que
+// publica el organismo. Un puerto sin umbrales (los de Paraguay y las represas)
+// nunca puede estar en alerta, así que cuenta como estable mientras tenga dato.
+function estadoOficial(s){
+  const cur=lastTwo(s.r)[1];
+  if(cur===null) return 'nd';
+  if(s.ev!==null&&s.ev!==undefined&&cur>=s.ev) return 'evacuacion';
+  if(s.al!==null&&s.al!==undefined&&cur>=s.al) return 'alerta';
+  return 'estable';
 }
-function renderStats(){
-  let T=0,U=0,D=0,E=0,N=0;
-  for(const rv of RIVERS) for(const s of rv.stations){
-    T++;const t=tc(s.r);
-    if(t==='C')U++;else if(t==='B')D++;else if(t==='E')E++;else N++;
+
+// Fluctuación entre las dos últimas lecturas. Los umbrales son asimétricos
+// porque una crecida rápida es más urgente que una bajante. Sólo aplica a los
+// puertos que miden altura: un salto de 1 m³/s de caudal no significa nada.
+function fluctuacion(s){
+  if(!esAltura(s)) return null;
+  const v=var24(s.r);
+  if(v===null) return null;
+  if(v>UMBRAL_CRECIDA) return 'crecida';
+  if(v<UMBRAL_BAJANTE) return 'bajante';
+  return null;
+}
+
+// Recorre los puertos de todos los ríos, en el orden de history.json.
+function cadaPuerto(fn){
+  for(const rv of RIVERS) for(const s of rv.stations) fn(s,rv);
+}
+function puertosPorEstado(estado){
+  const out=[];
+  cadaPuerto(s=>{ if(estadoOficial(s)===estado) out.push(s.n); });
+  return out;
+}
+function puertosPorFluctuacion(tipo){
+  const out=[];
+  cadaPuerto(s=>{
+    const f=fluctuacion(s);
+    if(f&&(tipo==='todas'||f===tipo)) out.push(s.n);
+  });
+  return out;
+}
+
+// --- Paneles de alertas -----------------------------------------------------
+
+// Etiqueta clickeable de un puerto: al soltarla, el gráfico queda filtrado en
+// ese puerto. `valor` es lo que se muestra en grande y `extra` la referencia
+// (el umbral superado, o el nivel al que llegó tras la fluctuación).
+function etiquetaPuerto({s,rv,valor,clase,extra}){
+  return `<button type="button" class="pill c-${clase}" data-puerto="${s.n}"`+
+    ` title="${rv.name} — ver sólo este puerto en el gráfico">`+
+    `<span class="pill-n">${s.n}</span>`+
+    `<span class="pill-val">${valor}</span>`+
+    (extra?`<span class="pill-meta">${extra}</span>`:'')+
+    `</button>`;
+}
+
+// Panel 1: sólo existe en pantalla si hay al menos un puerto sobre umbral.
+function renderAlertasOficiales(){
+  const panel=document.getElementById('js-oficial');
+  const cuerpo=document.getElementById('js-oficial-body');
+  const grupos={evacuacion:[],alerta:[]};
+  cadaPuerto((s,rv)=>{
+    const estado=estadoOficial(s);
+    if(estado==='evacuacion'||estado==='alerta') grupos[estado].push({s,rv});
+  });
+
+  const total=grupos.evacuacion.length+grupos.alerta.length;
+  panel.hidden=!total;
+  if(!total){cuerpo.innerHTML='';return;}
+
+  let html='';
+  for(const [estado,titulo] of [['evacuacion','Evacuación'],['alerta','Alerta']]){
+    const items=grupos[estado];
+    if(!items.length) continue;
+    const clase=estado==='evacuacion'?'evacuacion':'alerta';
+    html+=`<div class="ap-group">
+      <span class="ap-sub c-${clase}">${titulo} (${items.length})</span>
+      <div class="ap-pills">${items.map(({s,rv})=>etiquetaPuerto({
+        s,rv,clase,
+        valor:`${lastTwo(s.r)[1].toFixed(2)} ${unidadDe(s)}`,
+        extra:estado==='evacuacion'?`evacuación ${s.ev.toFixed(2)}`:`alerta ${s.al.toFixed(2)}`,
+      })).join('')}</div>
+    </div>`;
   }
-  document.getElementById('js-stats').innerHTML=`
-    <div class="stat"><span class="stat-n">${T}</span><span class="stat-l">Total</span></div>
-    <div class="stat s-up"><span class="stat-n">${U}</span><span class="stat-l">↑ Creciendo</span></div>
-    <div class="stat s-dn"><span class="stat-n">${D}</span><span class="stat-l">↓ Bajando</span></div>
-    <div class="stat s-eq"><span class="stat-n">${E}</span><span class="stat-l">= Estable</span></div>
-    <div class="stat s-nd"><span class="stat-n">${N}</span><span class="stat-l">Sin datos</span></div>`;
+  cuerpo.innerHTML=html;
+}
+
+// Panel 2: crecidas y bajantes separadas, cada grupo con su subtítulo filtrable.
+function renderFluctuacion(){
+  const panel=document.getElementById('js-fluct');
+  const cuerpo=document.getElementById('js-fluct-body');
+  const grupos={crecida:[],bajante:[]};
+  cadaPuerto((s,rv)=>{
+    const tipo=fluctuacion(s);
+    if(tipo) grupos[tipo].push({s,rv,v:var24(s.r)});
+  });
+
+  const total=grupos.crecida.length+grupos.bajante.length;
+  panel.hidden=!total;
+  if(!total){cuerpo.innerHTML='';return;}
+
+  let html='';
+  for(const [tipo,titulo] of [['crecida','Crecidas'],['bajante','Bajantes']]){
+    const items=grupos[tipo];
+    if(!items.length) continue;
+    html+=`<div class="ap-group">
+      <button type="button" class="ap-sub c-${tipo}" data-grupo="${tipo}"
+              title="Ver en el gráfico todos los puertos de este grupo">${titulo} (${items.length})</button>
+      <div class="ap-pills">${items.map(({s,rv,v})=>etiquetaPuerto({
+        s,rv,clase:tipo,
+        valor:`${v>0?'+':''}${v.toFixed(2)} ${unidadDe(s)}`,
+        extra:`ahora ${lastTwo(s.r)[1].toFixed(2)}`,
+      })).join('')}</div>
+    </div>`;
+  }
+  cuerpo.innerHTML=html;
+}
+
+// Panel 3: resumen por estado oficial. Las tarjetas con al menos un puerto son
+// botones que filtran el gráfico; "Sin datos" nunca lo es, porque graficar
+// series vacías no muestra nada.
+function renderStats(){
+  const conteo={total:0,evacuacion:0,alerta:0,estable:0,nd:0};
+  cadaPuerto(s=>{ conteo.total++; conteo[estadoOficial(s)]++; });
+
+  const tarjetas=[
+    {estado:'total',      lbl:'Total',         n:conteo.total,      clase:''},
+    {estado:'evacuacion', lbl:'En evacuación', n:conteo.evacuacion, clase:'c-evacuacion'},
+    {estado:'alerta',     lbl:'En alerta',     n:conteo.alerta,     clase:'c-alerta'},
+    {estado:'estable',    lbl:'Estables',      n:conteo.estable,    clase:'c-estable'},
+    {estado:'nd',         lbl:'Sin datos',     n:conteo.nd,         clase:'s-nd'},
+  ];
+  document.getElementById('js-stats').innerHTML=tarjetas.map(t=>{
+    const cuerpo=`<span class="stat-n">${t.n}</span><span class="stat-l">${t.lbl}</span>`;
+    if(t.estado==='nd'||!t.n) return `<div class="stat ${t.clase}">${cuerpo}</div>`;
+    return `<button type="button" class="stat ${t.clase}" data-estado="${t.estado}"`+
+      ` title="Ver estos puertos en el gráfico">${cuerpo}</button>`;
+  }).join('');
 }
 function renderRivers(){
   const wrap=document.getElementById('js-rivers');
@@ -189,21 +298,51 @@ function renderRivers(){
 const CAT_L=['#0B5CAB','#0D9B8A','#1A6B7A','#1478A8','#3D8B6E','#5B7C99','#0E7C8B','#2A6F97','#6B4FA8','#A65C2E','#8C3D5F','#4F7A2A'];
 const CAT_D=['#4BA3E6','#2EC4B0','#5EB4C4','#3DB5E0','#6BC4A0','#8AAFC4','#4DB8C6','#6AA8C9','#A78BE0','#E0955F','#DE8AAF','#9CC96A'];
 
-// Filtro del panel de comparación: 'todos' (los 33 puertos juntos) o el id de
-// un río. Arranca en 'todos', que es el panel visible por defecto.
+// Qué muestra el gráfico principal. Hay dos formas de elegirlo:
+//   {tipo:'rio', id}          -> 'todos' o el id de un río (botonera de abajo)
+//   {tipo:'puertos', nombres} -> una lista puntual, que llega desde los paneles
+//                                de alertas o las tarjetas de resumen
+// Arranca en todos los puertos, que es la vista por defecto.
 const FILTRO_TODOS='todos';
-let filtroRio=FILTRO_TODOS;
+let seleccion={tipo:'rio',id:FILTRO_TODOS};
 let chart=null;
 
-// Puertos que entran en el gráfico según el filtro activo, en el orden en que
-// vienen de history.json (ríos y puertos ya vienen ordenados desde el JSON).
-// Sólo puertos que miden en metros: los de caudal van en su propio panel.
+// Puertos que entran en el gráfico según la selección activa, en el orden en
+// que vienen de history.json. Sólo los que miden en metros: los de caudal
+// tienen su propio panel y su propia escala.
 function puertosDelFiltro(){
-  const rios=filtroRio===FILTRO_TODOS?RIVERS:RIVERS.filter(rv=>rv.id===filtroRio);
   const out=[];
-  for(const rv of rios) for(const s of rv.stations)
-    if(esAltura(s)) out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name});
+  cadaPuerto((s,rv)=>{
+    if(!esAltura(s)) return;
+    if(seleccion.tipo==='rio'){
+      if(seleccion.id!==FILTRO_TODOS&&rv.id!==seleccion.id) return;
+    }else if(!seleccion.nombres.has(s.n)) return;
+    out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name});
+  });
   return out;
+}
+
+// Baja hasta el gráfico, respetando a quien pidió menos animaciones.
+function irAlGrafico(){
+  const panel=document.getElementById('js-chart-panel');
+  if(!panel) return;
+  const suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  panel.scrollIntoView({behavior:suave?'smooth':'auto',block:'start'});
+}
+function filtrarPorRio(id){
+  seleccion={tipo:'rio',id};
+  renderToggles();
+  buildChart();
+}
+// `clase` es el estado semántico (evacuacion, alerta, crecida...) y se usa para
+// pintar el indicador de filtro activo con el mismo color del panel de origen.
+function filtrarPuertos(nombres,etiqueta,clase){
+  const lista=[...new Set(nombres)];
+  if(!lista.length) return;
+  seleccion={tipo:'puertos',nombres:new Set(lista),etiqueta,clase};
+  renderToggles();
+  buildChart();
+  irAlGrafico();
 }
 function puertosDeCaudal(){
   const out=[];
@@ -231,20 +370,21 @@ function buildChart(){
   const ctx=document.getElementById('js-chart').getContext('2d');
   const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
   const puertos=puertosDelFiltro();
-  // Con los 33 puertos juntos no hay leyenda ni colores por puerto que se
-  // puedan leer: se pinta cada línea con el color de su río y se identifica
-  // el puerto al pasar el mouse. Filtrando por río sí entra la leyenda.
-  const todos=filtroRio===FILTRO_TODOS;
+  // Con muchas series no hay leyenda ni colores por puerto que se puedan leer:
+  // se pinta cada línea con el color de su río y se identifica el puerto al
+  // pasar el mouse. Con pocas (un río, o un filtro desde un panel) entra la
+  // leyenda y cada puerto recibe su propio color.
+  const muchos=puertos.length>CAT_L.length;
   const sets=puertos.map((s,i)=>{
-    const col=todos?CS(s.cv):COLS[i%COLS.length];
+    const col=muchos?CS(s.cv):COLS[i%COLS.length];
     return {
-      label:todos?`${s.n} · ${s.rio}`:s.n,
+      label:muchos?`${s.n} · ${s.rio}`:s.n,
       data:s.r.map(v=>v===null?null:v),
       borderColor:col,backgroundColor:col+'18',
-      borderWidth:todos?1.5:2,
-      // pointRadius > 0 incluso en modo "todos": con una sola fecha cargada,
+      borderWidth:muchos?1.5:2,
+      // pointRadius > 0 incluso con muchas series: con una sola fecha cargada,
       // una línea sin puntos no dibujaría nada.
-      pointRadius:todos?2:4,pointHoverRadius:6,
+      pointRadius:muchos?2:4,pointHoverRadius:6,
       tension:.2,spanGaps:false,fill:false,
     };
   });
@@ -252,9 +392,9 @@ function buildChart(){
   chart=new Chart(ctx,{
     type:'line',data:{labels:DATE_LBL,datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
-      interaction:todos?{mode:'nearest',intersect:true}:{mode:'index',intersect:false},
+      interaction:muchos?{mode:'nearest',intersect:true}:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:!todos,position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
+        legend:{display:!muchos,position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
           callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' m':'S/D'}`}}
       },
@@ -299,9 +439,12 @@ function buildCaudalChart(){
 }
 // Botonera del panel de comparación: "TODOS LOS PUERTOS" primero y después un
 // botón por río, en el orden en que vienen en history.json. Es de selección
-// única (como un radio), no una lista de puertos individuales.
+// única (como un radio), no una lista de puertos individuales. Cuando el
+// filtro llegó desde un panel de alertas, ningún botón queda activo y en su
+// lugar aparece un indicador con el origen del filtro y una cruz para volver.
 function renderToggles(){
   const el=document.getElementById('js-toggles');
+  const porRio=seleccion.tipo==='rio';
   // Los contadores son de puertos graficados en este panel, es decir los que
   // miden en metros: los de caudal tienen su propio panel.
   const total=RIVERS.reduce((n,rv)=>n+cuantasAlturas(rv),0);
@@ -309,14 +452,55 @@ function renderToggles(){
   for(const rv of RIVERS)
     botones.push({id:rv.id,txt:`${rv.name.replace(/^Río\s+/,'')} (${cuantasAlturas(rv)})`});
 
-  el.innerHTML=botones.map(b=>
-    `<button class="tog ${b.id===filtroRio?'on':''}" data-rio="${b.id}">${b.txt}</button>`).join('');
+  let html=botones.map(b=>
+    `<button class="tog ${porRio&&b.id===seleccion.id?'on':''}" data-rio="${b.id}">${b.txt}</button>`).join('');
 
-  el.addEventListener('click',e=>{
-    const b=e.target.closest('.tog');if(!b)return;
-    filtroRio=b.dataset.rio;
-    el.querySelectorAll('.tog').forEach(x=>x.classList.toggle('on',x.dataset.rio===filtroRio));
-    buildChart();
+  // El contador es de líneas realmente dibujadas, que puede ser menor que los
+  // puertos seleccionados si alguno mide caudal y quedó fuera de este gráfico.
+  if(!porRio) html+=`<span class="filtro-activo ${seleccion.clase?'c-'+seleccion.clase:''}">`+
+    `${seleccion.etiqueta} (${puertosDelFiltro().length})`+
+    `<button class="filtro-x" data-rio="${FILTRO_TODOS}" title="Quitar el filtro"`+
+    ` aria-label="Quitar el filtro y volver a todos los puertos">✕</button></span>`;
+
+  el.innerHTML=html;
+}
+
+// Todos los clics de filtrado, por delegación: los paneles se redibujan enteros
+// en cada render, así que los listeners van una sola vez sobre los contenedores.
+function conectarFiltros(){
+  document.getElementById('js-toggles').addEventListener('click',e=>{
+    const b=e.target.closest('[data-rio]');
+    if(b) filtrarPorRio(b.dataset.rio);
+  });
+
+  document.getElementById('js-oficial').addEventListener('click',e=>{
+    const b=e.target.closest('[data-puerto]');
+    if(b) filtrarPuertos([b.dataset.puerto],b.dataset.puerto,b.classList.contains('c-evacuacion')?'evacuacion':'alerta');
+  });
+
+  // Un solo listener para el panel de fluctuación: cubre el título (todas), los
+  // subtítulos de cada grupo y las etiquetas de cada puerto.
+  document.getElementById('js-fluct').addEventListener('click',e=>{
+    const puerto=e.target.closest('[data-puerto]');
+    if(puerto){
+      filtrarPuertos([puerto.dataset.puerto],puerto.dataset.puerto,
+        puerto.classList.contains('c-crecida')?'crecida':'bajante');
+      return;
+    }
+    const grupo=e.target.closest('[data-grupo]');
+    if(!grupo) return;
+    const tipo=grupo.dataset.grupo;
+    const etiquetas={todas:'Con fluctuación',crecida:'Crecidas',bajante:'Bajantes'};
+    filtrarPuertos(puertosPorFluctuacion(tipo),etiquetas[tipo],tipo==='todas'?'':tipo);
+  });
+
+  document.getElementById('js-stats').addEventListener('click',e=>{
+    const b=e.target.closest('[data-estado]');
+    if(!b) return;
+    const estado=b.dataset.estado;
+    if(estado==='total'){ filtrarPorRio(FILTRO_TODOS); irAlGrafico(); return; }
+    const etiquetas={evacuacion:'En evacuación',alerta:'En alerta',estable:'Estables'};
+    filtrarPuertos(puertosPorEstado(estado),etiquetas[estado],estado);
   });
 }
 // Una tarjeta por puerto con su pico dentro de la ventana de los últimos
@@ -458,8 +642,11 @@ async function init(){
   LAST_UPDATE=datos.last_update||null;
   DATE_LBL=DATES.map(etiquetaCorta);
 
-  renderDate();renderAlerts();renderStats();renderRivers();renderHistorical();
+  renderDate();
+  renderAlertasOficiales();renderFluctuacion();renderStats();
+  renderRivers();renderHistorical();
   renderToggles();buildChart();buildCaudalChart();renderRecords();
+  conectarFiltros();
 }
 
 init();

@@ -28,11 +28,33 @@
     </div>
   </header>
 
+  <!-- Franja reservada para errores de carga de history.json. -->
   <div class="alert-strip" id="js-alerts" hidden></div>
+
+  <!-- Panel 1. Estado oficial: sólo aparece si hay puertos sobre umbral.
+       Las etiquetas las inyecta renderAlertasOficiales(). -->
+  <section class="alert-panel ap-oficial" id="js-oficial" hidden>
+    <div class="ap-hd"><span class="ap-title">Estado oficial: alerta y evacuación</span></div>
+    <div class="ap-body" id="js-oficial-body"></div>
+  </section>
+
+  <!-- Panel 2. Fluctuación brusca: el título filtra el gráfico con todos los
+       puertos que fluctuaron; lo inyecta renderFluctuacion(). -->
+  <section class="alert-panel ap-fluct" id="js-fluct" hidden>
+    <div class="ap-hd">
+      <button type="button" class="ap-title ap-click" data-grupo="todas"
+              title="Ver en el gráfico todos los puertos con fluctuación">
+        Alerta por fluctuación brusca (en 24 hs)
+      </button>
+    </div>
+    <div class="ap-body" id="js-fluct-body"></div>
+  </section>
+
+  <!-- Panel 3. Resumen por estado oficial, lo inyecta renderStats(). -->
   <div class="stats" id="js-stats"></div>
 
   <div class="content">
-    <div class="panel">
+    <div class="panel" id="js-chart-panel">
       <div class="sec-hd"><span class="sec-title">Evolución por puerto — elegí un río para comparar</span></div>
       <div class="ch-ctrl" id="js-toggles"></div>
       <div class="ch-area"><canvas id="js-chart"></canvas></div>

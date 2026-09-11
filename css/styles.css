@@ -24,6 +24,13 @@
   --alert-fg: #C83030;
   --alert-bg: #FFF0EE;
   --alert-bd: #C83030;
+  /* Colores semánticos de estado. Se usan como var(--c) a través de las
+     clases .c-* , que los aplican a texto, borde y fondo de cada elemento. */
+  --evacuacion: #C62828;
+  --alerta-oficial: #B07503;
+  --estable: #1E8E52;
+  --alerta-crecida: #1565C0;
+  --alerta-bajante: #8A5A2B;
   --radius: 14px;
   --shadow: 0 8px 24px rgba(6, 32, 51, 0.06), 0 1px 3px rgba(6, 32, 51, 0.04);
   --ff-cond: 'Montserrat', system-ui, sans-serif;
@@ -58,6 +65,11 @@
     --alert-fg: #E66767;
     --alert-bg: #1C0606;
     --alert-bd: #C83030;
+    --evacuacion: #FF6B6B;
+    --alerta-oficial: #F2C14E;
+    --estable: #4FD18B;
+    --alerta-crecida: #6BA9F5;
+    --alerta-bajante: #C79A6B;
     --shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 }
@@ -88,6 +100,11 @@
   --alert-fg: #E66767;
   --alert-bg: #1C0606;
   --alert-bd: #C83030;
+  --evacuacion: #FF6B6B;
+  --alerta-oficial: #F2C14E;
+  --estable: #4FD18B;
+  --alerta-crecida: #6BA9F5;
+  --alerta-bajante: #C79A6B;
   --shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -172,6 +189,103 @@ body {
   color: var(--alert-fg);
 }
 
+/* ---------------------------------------------------------------------------
+   Estados semánticos. Cada clase .c-* sólo define --c; el resto de las reglas
+   (texto, borde, fondo, brillo del hover) lee esa variable, así que agregar un
+   estado nuevo es agregar una línea acá.
+   --------------------------------------------------------------------------- */
+.c-evacuacion { --c: var(--evacuacion); }
+.c-alerta     { --c: var(--alerta-oficial); }
+.c-estable    { --c: var(--estable); }
+.c-crecida    { --c: var(--alerta-crecida); }
+.c-bajante    { --c: var(--alerta-bajante); }
+
+.alert-panel {
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.alert-panel[hidden] { display: none; }
+.ap-oficial {
+  background: color-mix(in srgb, var(--evacuacion) 7%, var(--surf));
+  border-bottom-width: 2px;
+  border-bottom-color: color-mix(in srgb, var(--evacuacion) 35%, transparent);
+}
+/* Tono apenas distinto para separarlo del panel oficial y de las tarjetas. */
+.ap-fluct { background: var(--surf2); }
+.ap-hd { display: flex; align-items: center; gap: 8px; }
+.ap-title {
+  font-family: var(--ff-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink2);
+}
+.ap-oficial .ap-title { color: var(--evacuacion); }
+
+/* Botón que no parece botón: hereda la tipografía del título que acompaña. */
+.ap-click {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: filter .12s;
+}
+.ap-click:hover, .ap-click:focus-visible {
+  filter: brightness(1.25);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ap-body { display: flex; flex-direction: column; gap: 7px; }
+.ap-group { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.ap-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ap-sub, .pill {
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--c, var(--ink3)) 45%, transparent);
+  background: color-mix(in srgb, var(--c, var(--ink3)) 9%, var(--surf));
+  color: var(--c, var(--ink2));
+}
+.ap-sub {
+  font-family: var(--ff-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  flex-shrink: 0;
+}
+.pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 9px;
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pill-n { font-weight: 500; letter-spacing: .02em; }
+.pill-val { font-weight: 700; }
+.pill-meta { font-size: 10px; opacity: .7; }
+
+/* Interactividad compartida por etiquetas y subtítulos clickeables. */
+button.ap-sub, button.pill {
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+button.ap-sub:hover, button.ap-sub:focus-visible,
+button.pill:hover, button.pill:focus-visible {
+  border-color: var(--c, var(--ink2));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, var(--ink3)) 20%, transparent);
+  outline: none;
+}
+button.ap-sub:active, button.pill:active { transform: translateY(1px); }
+
 .stats {
   background: var(--surf);
   border-bottom: 1px solid var(--border);
@@ -181,11 +295,27 @@ body {
 }
 .stat {
   padding: 14px 22px;
+  border: none;
   border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  /* Explícito porque las tarjetas clickeables son <button>, y los botones no
+     heredan la tipografía del documento. */
+  font-family: var(--ff-body);
   text-align: center;
   flex: 1 0 auto;
 }
 .stat:last-child { border-right: none; }
+button.stat {
+  cursor: pointer;
+  transition: background .12s, box-shadow .12s;
+}
+button.stat:hover, button.stat:focus-visible {
+  background: color-mix(in srgb, var(--c, var(--ink3)) 10%, transparent);
+  box-shadow: inset 0 -3px 0 var(--c, var(--ink3));
+  outline: none;
+}
 .stat-n {
   display: block;
   font-family: var(--ff-cond);
@@ -202,9 +332,7 @@ body {
   letter-spacing: .07em;
   margin-top: 1px;
 }
-.stat.s-up .stat-n { color: var(--crece-fg); }
-.stat.s-dn .stat-n { color: var(--baja-fg); }
-.stat.s-eq .stat-n { color: var(--ink3); }
+.stat .stat-n { color: var(--c, var(--ink1)); }
 .stat.s-nd .stat-n { color: var(--ink3); opacity: .4; }
 
 .content {
@@ -353,6 +481,38 @@ table.st tr.warned:hover td { background: var(--crece-bg); filter: brightness(.9
   border-color: var(--iguazu);
   background: rgba(11, 92, 171, .08);
   color: var(--iguazu);
+}
+
+/* Aparece cuando el gráfico se filtró desde un panel de alertas o una tarjeta,
+   para que se entienda por qué no está activo ningún botón de río. */
+.filtro-activo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  padding: 2px 4px 2px 9px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--c, var(--ink3)) 45%, transparent);
+  background: color-mix(in srgb, var(--c, var(--ink3)) 9%, var(--surf));
+  color: var(--c, var(--ink2));
+  font-family: var(--ff-cond);
+  font-size: 11px;
+  font-weight: 600;
+}
+.filtro-x {
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.filtro-x:hover, .filtro-x:focus-visible {
+  background: color-mix(in srgb, var(--c, var(--ink3)) 22%, transparent);
+  outline: none;
 }
 
 /* Más alto que antes: el panel puede dibujar los 33 puertos a la vez. */
