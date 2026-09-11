@@ -233,7 +233,7 @@ function renderFluctuacion(){
       <div class="ap-pills">${items.map(({s,rv,v})=>etiquetaPuerto({
         s,rv,clase:tipo,
         valor:`${fmtVar(v)} ${unidadDe(s)}`,
-        extra:`ahora ${formatoAR(lastTwo(s.r)[1])}`,
+        extra:`ahora ${formatoAR(lastTwo(s.r)[1])} m`,
       })).join('')}</div>
     </div>`;
   }
