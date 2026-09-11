@@ -25,7 +25,18 @@ const CS = name => getComputedStyle(document.documentElement).getPropertyValue(n
 const UNIDAD_ALTURA='m';
 const unidadDe = s => s.u||UNIDAD_ALTURA;
 const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
-function fmt(v){ return v===null||v===undefined ? 'S/D' : v.toFixed(2); }
+// Números al estándar argentino: dos decimales fijos y coma. 14 -> '14,00'.
+function formatoAR(num){
+  return Number(num).toFixed(2).replace('.', ',');
+}
+function fmt(v){
+  return v===null||v===undefined||typeof v!=='number'||!isFinite(v) ? 'S/D' : formatoAR(v);
+}
+// Variación con signo: '+1,32' / '-1,51'. El menos ya lo pone toFixed.
+function fmtVar(v){
+  if(v===null||v===undefined||!isFinite(v)) return '—';
+  return (v>0?'+':'')+formatoAR(v);
+}
 function fmtISO(iso){
   const [y,m,d] = iso.split('-');
   return `${parseInt(d)} ${MESES_MAY[+m-1]} ${y}`;
@@ -177,8 +188,8 @@ function renderAlertasOficiales(){
       <span class="ap-sub c-${clase}">${titulo} (${items.length})</span>
       <div class="ap-pills">${items.map(({s,rv})=>etiquetaPuerto({
         s,rv,clase,
-        valor:`${lastTwo(s.r)[1].toFixed(2)} ${unidadDe(s)}`,
-        extra:estado==='evacuacion'?`evacuación ${s.ev.toFixed(2)}`:`alerta ${s.al.toFixed(2)}`,
+        valor:`${formatoAR(lastTwo(s.r)[1])} ${unidadDe(s)}`,
+        extra:estado==='evacuacion'?`evacuación ${formatoAR(s.ev)}`:`alerta ${formatoAR(s.al)}`,
       })).join('')}</div>
     </div>`;
   }
@@ -208,8 +219,8 @@ function renderFluctuacion(){
               title="Ver en el gráfico todos los puertos de este grupo">${titulo} (${items.length})</button>
       <div class="ap-pills">${items.map(({s,rv,v})=>etiquetaPuerto({
         s,rv,clase:tipo,
-        valor:`${v>0?'+':''}${v.toFixed(2)} ${unidadDe(s)}`,
-        extra:`ahora ${lastTwo(s.r)[1].toFixed(2)}`,
+        valor:`${fmtVar(v)} ${unidadDe(s)}`,
+        extra:`ahora ${formatoAR(lastTwo(s.r)[1])}`,
       })).join('')}</div>
     </div>`;
   }
@@ -254,16 +265,16 @@ function renderRivers(){
       const u=unidadDe(s);
       const bigVar=esAltura(s)&&v!==null&&Math.abs(v)>=1;
       const isAl=aboveAlert||aboveEvac;
-      const vStr=v===null?'—':(v>=0?'+':'')+v.toFixed(2)+' '+u;
+      const vStr=v===null?'—':fmtVar(v)+' '+u;
       const vCls=isAl?'va':v===null?'nd':v>0?'vu':v<0?'vd':'ve';
       const tlbl={C:'CRECE',B:'BAJA',E:'ESTABLE',nd:'S/D'}[t];
       const tblVals=tblIdx.map(i=>s.r[i]);
       const rowCls=aboveEvac||aboveAlert?'alerted':nearAlert||bigVar?'warned':'';
       const alTd=s.al!==null
-        ? `<td class="td-num ${aboveEvac||aboveAlert?'va':''}">${s.al.toFixed(2)}</td>`
+        ? `<td class="td-num ${aboveEvac||aboveAlert?'va':''}">${formatoAR(s.al)}</td>`
         : `<td class="td-num nd">—</td>`;
       const evTd=s.ev!==null
-        ? `<td class="td-num ${aboveEvac?'va':''}">${s.ev.toFixed(2)}</td>`
+        ? `<td class="td-num ${aboveEvac?'va':''}">${formatoAR(s.ev)}</td>`
         : `<td class="td-num nd">—</td>`;
       const uTag=esAltura(s)?'':`<span class="unit-tag">${u}</span>`;
       rows+=`<tr class="${rowCls}">
@@ -396,11 +407,11 @@ function buildChart(){
       plugins:{
         legend:{display:!muchos,position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
-          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' m':'S/D'}`}}
+          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}}
       },
       scales:{
         x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11}}},
-        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>v.toFixed(1)+' m'}},
+        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>formatoAR(v)+' m'}},
       }
     }
   });
@@ -428,11 +439,11 @@ function buildCaudalChart(){
       plugins:{
         legend:{position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
-          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' '+unidad:'S/D'}`}}
+          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' '+unidad:'S/D'}`}}
       },
       scales:{
         x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11}}},
-        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>v.toFixed(0)+' '+unidad}},
+        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>formatoAR(v)+' '+unidad}},
       }
     }
   });
@@ -521,7 +532,7 @@ function renderRecords(){
     h+=`<div class="rec-cell">`+
        `<div class="rec-stn">${s.n}</div>`+
        `<div class="rec-rv">${rv.name}</div>`+
-       `<div class="rec-val">${mx.x.toFixed(2)} ${unidadDe(s)}</div>`+
+       `<div class="rec-val">${formatoAR(mx.x)} ${unidadDe(s)}</div>`+
        `<div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div>`+
        `</div>`;
   }
@@ -543,11 +554,11 @@ function buildHistChart(rv, canvasId, visibleSet) {
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,
-          borderWidth:1,titleColor:txtc,bodyColor:txtc,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(2)+' m':'S/D'}`}}
+          borderWidth:1,titleColor:txtc,bodyColor:txtc,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}}
       },
       scales:{
         x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:10},maxTicksLimit:12}},
-        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:10},callback:v=>v.toFixed(1)+' m'}},
+        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:10},callback:v=>formatoAR(v)+' m'}},
       }
     }
   });
