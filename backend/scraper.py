@@ -819,3 +819,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+enviar_whatsapp("🤖 Test de Monitor Hídrico: Si leés esto, la conexión para varios celulares funciona perfecto. ¡El bot está vivo!")
