@@ -246,6 +246,7 @@ body {
   color: var(--ink2);
 }
 .ap-oficial .ap-title { color: var(--evacuacion); }
+.ap-oficial .ap-title .c-alerta { color: var(--alerta-oficial); }
 
 /* Botón que no parece botón: hereda la tipografía del título que acompaña. */
 .ap-click {
@@ -590,6 +591,30 @@ table.st tr.c-bajante:hover td {
   color: var(--ink1);
 }
 .leg.on::before { opacity: 1; }
+
+.badge-fuente {
+  display: inline-block;
+  font-family: var(--ff-cond);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 2px 6px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.badge-fuente.pna {
+  color: var(--iguazu);
+  background: color-mix(in srgb, var(--iguazu) 16%, transparent);
+}
+.badge-fuente.dmh {
+  color: var(--uruguay);
+  background: color-mix(in srgb, var(--uruguay) 16%, transparent);
+}
+.td-nm .badge-fuente,
+.rec-stn .badge-fuente { margin-left: 6px; }
 
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
 .rec-empty { padding: 14px 16px; font-size: 12px; color: var(--ink3); }

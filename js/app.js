@@ -30,6 +30,22 @@ const CS = name => getComputedStyle(document.documentElement).getPropertyValue(n
 const UNIDAD_ALTURA='m';
 const unidadDe = s => s.u||UNIDAD_ALTURA;
 const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
+// Localidades del DMH paraguayo. Si el puerto trae "f"/"fuente" (PNA|DMH),
+// esa propiedad gana; si no, se infiere por nombre, igual que en el scraper.
+const FUENTES_DMH=new Set(['POZO HONDO','CÁCERES','BAHÍA NEGRA','MURTINHO','VALLEMI','CONCEPCIÓN','ASUNCIÓN']);
+function fuenteDe(s){
+  const f=String(s.f||s.fuente||'').toUpperCase();
+  if(f==='DMH'||f==='PNA') return f;
+  return FUENTES_DMH.has(s.n)?'DMH':'PNA';
+}
+function badgeFuente(s){
+  const f=fuenteDe(s);
+  const cls=f==='DMH'?'dmh':'pna';
+  const titulo=f==='DMH'
+    ?'Dirección de Meteorología e Hidrología de Paraguay'
+    :'Prefectura Naval Argentina';
+  return `<span class="badge-fuente ${cls}" title="${titulo}">${f}</span>`;
+}
 // Números al estándar argentino: dos decimales fijos y coma. 14 -> '14,00'.
 function formatoAR(num){
   return Number(num).toFixed(2).replace('.', ',');
@@ -155,6 +171,11 @@ function claseFila(s){
 function cadaPuerto(fn){
   for(const rv of RIVERS) for(const s of rv.stations) fn(s,rv);
 }
+function puertoPorNombre(n){
+  let hallado=null;
+  cadaPuerto(s=>{ if(!hallado&&s.n===n) hallado=s; });
+  return hallado;
+}
 function puertosPorEstado(estado){
   const out=[];
   cadaPuerto(s=>{ if(estadoOficial(s)===estado) out.push(s.n); });
@@ -178,6 +199,7 @@ function etiquetaPuerto({s,rv,valor,clase,extra}){
   return `<button type="button" class="pill c-${clase}" data-puerto="${s.n}"`+
     ` title="${rv.name} — ver sólo este puerto en el gráfico">`+
     `<span class="pill-n">${s.n}</span>`+
+    badgeFuente(s)+
     `<span class="pill-val">${valor}</span>`+
     (extra?`<span class="pill-meta">${extra}</span>`:'')+
     `</button>`;
@@ -291,7 +313,7 @@ function renderRivers(){
         : `<td class="td-num nd">—</td>`;
       const uTag=esAltura(s)?'':`<span class="unit-tag">${u}</span>`;
       rows+=`<tr${rowCls?` class="${rowCls}"`:''}>
-        <td class="td-nm">${s.n}${uTag}</td>
+        <td class="td-nm">${s.n}${badgeFuente(s)}${uTag}</td>
         <td class="td-sp">${spark(s.r,col)}</td>
         ${tblVals.map(val=>`<td class="td-num ${val===null?'nd':''}">${fmt(val)}</td>`).join('')}
         <td class="td-var ${vCls}">${vStr}</td>
@@ -341,7 +363,7 @@ function puertosDelFiltro(){
     if(seleccion.tipo==='rio'){
       if(seleccion.id!==FILTRO_TODOS&&rv.id!==seleccion.id) return;
     }else if(!seleccion.nombres.has(s.n)) return;
-    out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name,al:s.al??null,ev:s.ev??null});
+    out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name,al:s.al??null,ev:s.ev??null,f:fuenteDe(s)});
   });
   return out;
 }
@@ -455,6 +477,8 @@ function buildChart(){
     return {
       label:muchos?`${s.n} · ${s.rio}`:s.n,
       nombre:s.n,
+      rio:s.rio,
+      fuente:s.f||fuenteDe(s),
       al:s.al??null,
       ev:s.ev??null,
       data:s.r.map(v=>v===null?null:v),
@@ -481,7 +505,15 @@ function buildChart(){
           intersect:true,
           backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,
           titleColor:txtc,bodyColor:txtc,
-          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}
+          callbacks:{
+            label:c=>{
+              const y=c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D';
+              const nom=c.dataset.nombre||c.dataset.label;
+              const fte=c.dataset.fuente?` (${c.dataset.fuente})`:'';
+              const rio=c.dataset.rio?` - ${c.dataset.rio}`:'';
+              return ` ${nom}${fte}${rio}: ${y}`;
+            }
+          }
         }
       },
       scales:{
@@ -503,8 +535,9 @@ function renderLeyenda(){
   el.innerHTML=chart.data.datasets.map((d,i)=>{
     const on=chart.isDatasetVisible(i)?'on':'';
     const nom=d.nombre||d.label;
+    const fte=d.fuente?badgeFuente({n:nom,f:d.fuente}):'';
     return `<button type="button" class="leg ${on}" data-ds="${i}" style="--c:${d.borderColor}"`+
-      ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}</button>`;
+      ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}${fte}</button>`;
   }).join('');
 }
 function toggleTodosLosDatasets(){
@@ -578,10 +611,13 @@ function renderToggles(){
 
   // El contador es de líneas realmente dibujadas, que puede ser menor que los
   // puertos seleccionados si alguno mide caudal y quedó fuera de este gráfico.
-  if(!porRio) html+=`<span class="filtro-activo ${seleccion.clase?'c-'+seleccion.clase:''}">`+
-    `${seleccion.etiqueta} (${puertosDelFiltro().length})`+
-    `<button class="filtro-x" data-rio="${FILTRO_TODOS}" title="Quitar el filtro"`+
-    ` aria-label="Quitar el filtro y volver a todos los puertos">✕</button></span>`;
+  if(!porRio){
+    const puerto=puertoPorNombre(seleccion.etiqueta);
+    html+=`<span class="filtro-activo ${seleccion.clase?'c-'+seleccion.clase:''}">`+
+      `${seleccion.etiqueta}${puerto?badgeFuente(puerto):''} (${puertosDelFiltro().length})`+
+      `<button class="filtro-x" data-rio="${FILTRO_TODOS}" title="Quitar el filtro"`+
+      ` aria-label="Quitar el filtro y volver a todos los puertos">✕</button></span>`;
+  }
 
   el.innerHTML=html;
 }
@@ -646,7 +682,7 @@ function renderRecords(){
     if(!mx) continue;
     const[,m,d]=DATES[mx.i].split('-');
     h+=`<div class="rec-cell">`+
-       `<div class="rec-stn">${s.n}</div>`+
+       `<div class="rec-stn">${s.n}${badgeFuente(s)}</div>`+
        `<div class="rec-rv">${rv.name}</div>`+
        `<div class="rec-val">${formatoAR(mx.x)} ${unidadDe(s)}</div>`+
        `<div class="rec-when">máx el ${+d} ${MESES[+m-1]}</div>`+
