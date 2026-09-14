@@ -691,14 +691,15 @@ def enviar_whatsapp(mensaje: str) -> None:
     for telefono, apikey in zip(telefonos, apikeys):
         if not telefono or not apikey:
             continue
-        url = (
-            f"https://api.callmebot.com/whatsapp.php"
-            f"?phone={telefono}&text={texto_codificado}&apikey={apikey}"
-        )
+        url = f"https://api.callmebot.com/whatsapp.php?phone={telefono}&text={texto_codificado}&apikey={apikey}"
         try:
             respuesta = requests.get(url, timeout=30)
             respuesta.raise_for_status()
-            log.info("WhatsApp enviado a %s", telefono)
+            print(f"WhatsApp enviado a {telefono}. Respuesta: {respuesta.text}")
+        except requests.HTTPError as error:
+            cuerpo = error.response.text if error.response is not None else ""
+            print(f"Error HTTP al enviar WhatsApp a {telefono}: {error}. Respuesta: {cuerpo}")
+            continue
         except Exception as error:  # noqa: BLE001 - un destinatario no debe frenar al resto
             print(f"Error al enviar WhatsApp a {telefono}: {error}")
             continue
