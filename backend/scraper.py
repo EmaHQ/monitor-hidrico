@@ -814,10 +814,10 @@ def main() -> int:
     #    evacuación y el estado es distinto al de la corrida anterior.
     estados_actuales = evaluar_y_notificar(historial, lecturas, estados_previos)
     guardar_alertas(estados_actuales)
+    enviar_whatsapp("🤖 Test de Monitor Hídrico: Si leés esto, la conexión para varios celulares funciona perfecto. ¡El bot está vivo!")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
 
-enviar_whatsapp("🤖 Test de Monitor Hídrico: Si leés esto, la conexión para varios celulares funciona perfecto. ¡El bot está vivo!")
