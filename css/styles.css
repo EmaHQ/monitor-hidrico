@@ -441,6 +441,19 @@ table.st tr.c-bajante:hover td {
   font-weight: 600;
   letter-spacing: .03em;
 }
+.link-puerto {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  cursor: pointer;
+}
+.link-puerto:hover,
+.link-puerto:focus-visible {
+  text-decoration-color: currentColor;
+  filter: brightness(1.25);
+  outline: none;
+}
 .td-sp { width: 72px; padding: 3px 12px; }
 .td-num {
   text-align: right;

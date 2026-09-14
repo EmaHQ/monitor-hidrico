@@ -6,6 +6,48 @@ let RIVERS=[];     // ríos con sus puertos (clave "stations") y sus series r[]
 let LAST_UPDATE=null;  // sello del scraper, 'YYYY-MM-DD HH:MM:SS' en hora AR
 
 const ARCHIVO_HISTORIAL='./history.json';
+// Enlaces a la ficha oficial de cada puerto. String vacío = todavía sin URL.
+const URLS_OFICIALES={
+  'POZO HONDO':'',
+  'CÁCERES':'https://meteorologia.gov.py/nivel-rio/vermas_convencional.php?code=2000082003',
+  'BAHÍA NEGRA':'',
+  'MURTINHO':'',
+  'VALLEMI':'',
+  'CONCEPCIÓN':'',
+  'ASUNCIÓN':'',
+  'BOUVIER':'',
+  'FORMOSA':'',
+  'BERMEJO':'',
+  'LAS PALMAS':'',
+  'ISLA DEL CERRITO':'',
+  'CAPANEMA':'',
+  'ANDRESITO':'',
+  'IGUAZÚ':'https://contenidosweb.prefecturanaval.gob.ar/alturas/?page=historico&tiempo=7&id=20',
+  'ITAIPÚ':'',
+  'LIBERTAD':'',
+  'POSADAS':'',
+  'ITUZAINGÓ':'',
+  'ITÁ IBATÉ':'',
+  'ITATÍ':'',
+  'PASO DE LA PATRIA':'',
+  'CORRIENTES':'',
+  'BARRANQUERAS':'',
+  'EMPEDRADO':'',
+  'GOYA':'',
+  'ESQUINA':'',
+  'EL SOBERBIO':'',
+  'SAN JAVIER':'',
+  'SANTO TOMÉ':'',
+  'ALVEAR':'',
+  'PASO DE LOS LIBRES':'',
+  'MONTE CASEROS':'',
+};
+function nombrePuertoHtml(s){
+  const url=URLS_OFICIALES[s.n];
+  if(!url) return s.n;
+  return `<a class="link-puerto" href="${url}" target="_blank" rel="noopener noreferrer"`+
+    ` title="Ver ${s.n} en la fuente oficial">${s.n}</a>`;
+}
 // Ventana del panel de máximos: se evalúan los últimos 90 registros diarios,
 // o el historial completo si todavía es más corto.
 const VENTANA_MAXIMOS=90;
@@ -313,7 +355,7 @@ function renderRivers(){
         : `<td class="td-num nd">—</td>`;
       const uTag=esAltura(s)?'':`<span class="unit-tag">${u}</span>`;
       rows+=`<tr${rowCls?` class="${rowCls}"`:''}>
-        <td class="td-nm">${s.n}${badgeFuente(s)}${uTag}</td>
+        <td class="td-nm">${nombrePuertoHtml(s)}${badgeFuente(s)}${uTag}</td>
         <td class="td-sp">${spark(s.r,col)}</td>
         ${tblVals.map(val=>`<td class="td-num ${val===null?'nd':''}">${fmt(val)}</td>`).join('')}
         <td class="td-var ${vCls}">${vStr}</td>
