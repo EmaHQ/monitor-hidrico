@@ -13,10 +13,10 @@
   --iguazu: #0B5CAB;
   --parana: #0D9B8A;
   --uruguay: #1C7A4A;
-  --crece-fg: #C07A12;
-  --crece-bg: #FFF4E3;
-  --baja-fg: #0B6FA8;
-  --baja-bg: #E5F3FA;
+  --crece-fg: #B8860B;
+  --crece-bg: #FFF8E1;
+  --baja-fg: #2E7D32;
+  --baja-bg: #E8F5E9;
   --eq-fg: #3A5A6E;
   --eq-bg: #EEF3F6;
   --nd-fg: #6B8A9A;
@@ -27,10 +27,10 @@
   /* Colores semánticos de estado. Se usan como var(--c) a través de las
      clases .c-* , que los aplican a texto, borde y fondo de cada elemento. */
   --evacuacion: #C62828;
-  --alerta-oficial: #B07503;
-  --estable: #1E8E52;
-  --alerta-crecida: #1565C0;
-  --alerta-bajante: #8A5A2B;
+  --alerta-oficial: #E65100;
+  --estable: #1565C0;
+  --alerta-crecida: #C9A227;
+  --alerta-bajante: #2E7D32;
   --radius: 14px;
   --shadow: 0 8px 24px rgba(6, 32, 51, 0.06), 0 1px 3px rgba(6, 32, 51, 0.04);
   --ff-cond: 'Montserrat', system-ui, sans-serif;
@@ -54,10 +54,10 @@
     --iguazu: #4BA3E6;
     --parana: #2EC4B0;
     --uruguay: #4FC98A;
-    --crece-fg: #F0B24A;
-    --crece-bg: #2A1C08;
-    --baja-fg: #5BB8E8;
-    --baja-bg: #08202C;
+    --crece-fg: #FFD54F;
+    --crece-bg: #3A2E08;
+    --baja-fg: #66BB6A;
+    --baja-bg: #0E2A14;
     --eq-fg: #B7CDD8;
     --eq-bg: #122735;
     --nd-fg: #7A97A6;
@@ -66,10 +66,10 @@
     --alert-bg: #1C0606;
     --alert-bd: #C83030;
     --evacuacion: #FF6B6B;
-    --alerta-oficial: #F2C14E;
-    --estable: #4FD18B;
-    --alerta-crecida: #6BA9F5;
-    --alerta-bajante: #C79A6B;
+    --alerta-oficial: #FF9800;
+    --estable: #64B5F6;
+    --alerta-crecida: #FFD54F;
+    --alerta-bajante: #66BB6A;
     --shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 }
@@ -89,10 +89,10 @@
   --iguazu: #4BA3E6;
   --parana: #2EC4B0;
   --uruguay: #4FC98A;
-  --crece-fg: #F0B24A;
-  --crece-bg: #2A1C08;
-  --baja-fg: #5BB8E8;
-  --baja-bg: #08202C;
+  --crece-fg: #FFD54F;
+  --crece-bg: #3A2E08;
+  --baja-fg: #66BB6A;
+  --baja-bg: #0E2A14;
   --eq-fg: #B7CDD8;
   --eq-bg: #122735;
   --nd-fg: #7A97A6;
@@ -101,10 +101,10 @@
   --alert-bg: #1C0606;
   --alert-bd: #C83030;
   --evacuacion: #FF6B6B;
-  --alerta-oficial: #F2C14E;
-  --estable: #4FD18B;
-  --alerta-crecida: #6BA9F5;
-  --alerta-bajante: #C79A6B;
+  --alerta-oficial: #FF9800;
+  --estable: #64B5F6;
+  --alerta-crecida: #FFD54F;
+  --alerta-bajante: #66BB6A;
   --shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -510,6 +510,10 @@ table.st tr.c-bajante:hover td {
   background: rgba(11, 92, 171, .08);
   color: var(--iguazu);
 }
+.tog-all {
+  margin-left: 4px;
+  border-style: dashed;
+}
 
 /* Aparece cuando el gráfico se filtró desde un panel de alertas o una tarjeta,
    para que se entienda por qué no está activo ningún botón de río. */
@@ -546,6 +550,47 @@ table.st tr.c-bajante:hover td {
 /* Más alto que antes: el panel puede dibujar los 33 puertos a la vez. */
 .ch-area { padding: 14px 12px 10px; height: 340px; position: relative; }
 
+.ch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.ch-legend:empty { display: none; }
+.leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink3);
+  font-family: var(--ff-cond);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: border-color .12s, background .12s, color .12s, opacity .12s;
+}
+.leg::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c, var(--ink3));
+  flex-shrink: 0;
+  opacity: .35;
+}
+.leg:hover { color: var(--ink2); border-color: var(--ink3); }
+.leg.on {
+  border-color: color-mix(in srgb, var(--c, var(--ink2)) 70%, var(--border));
+  background: color-mix(in srgb, var(--c, var(--ink2)) 12%, var(--surf));
+  color: var(--ink1);
+}
+.leg.on::before { opacity: 1; }
+
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
 .rec-empty { padding: 14px 16px; font-size: 12px; color: var(--ink3); }
 .rec-cell {
@@ -570,34 +615,6 @@ table.st tr.c-bajante:hover td {
   line-height: 1.2;
 }
 .rec-when { font-size: 10px; color: var(--ink3); }
-
-.hist-chart-area { padding: 14px 12px 10px; height: 240px; position: relative; }
-.hist-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.hist-tab {
-  padding: 3px 9px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--ink3);
-  font-family: var(--ff-cond);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  cursor: pointer;
-  transition: border-color .12s, background .12s, color .12s;
-}
-.hist-tab:hover { color: var(--ink2); border-color: var(--ink3); }
-.hist-tab.on {
-  border-color: var(--ink2);
-  background: var(--surf2);
-  color: var(--ink1);
-}
 
 footer {
   text-align: center;

@@ -13,6 +13,11 @@ const VENTANA_MAXIMOS=90;
 // una crecida de 1 m ya es noticia, una bajante recién a partir de 1,50 m.
 const UMBRAL_CRECIDA=1.00;
 const UMBRAL_BAJANTE=-1.50;
+const ETIQUETA_FLUCT={
+  crecida:'Aumento de caudal',
+  bajante:'Disminución de caudal',
+  todas:'Con fluctuación',
+};
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MESES_MAY=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
@@ -209,7 +214,7 @@ function renderAlertasOficiales(){
   cuerpo.innerHTML=html;
 }
 
-// Panel 2: crecidas y bajantes separadas, cada grupo con su subtítulo filtrable.
+// Panel 2: aumentos y disminuciones de caudal, cada grupo con su subtítulo filtrable.
 function renderFluctuacion(){
   const panel=document.getElementById('js-fluct');
   const cuerpo=document.getElementById('js-fluct-body');
@@ -224,12 +229,12 @@ function renderFluctuacion(){
   if(!total){cuerpo.innerHTML='';return;}
 
   let html='';
-  for(const [tipo,titulo] of [['crecida','Crecidas'],['bajante','Bajantes']]){
+  for(const tipo of ['crecida','bajante']){
     const items=grupos[tipo];
     if(!items.length) continue;
     html+=`<div class="ap-group">
       <button type="button" class="ap-sub c-${tipo}" data-grupo="${tipo}"
-              title="Ver en el gráfico todos los puertos de este grupo">${titulo} (${items.length})</button>
+              title="Ver en el gráfico todos los puertos de este grupo">${ETIQUETA_FLUCT[tipo]} (${items.length})</button>
       <div class="ap-pills">${items.map(({s,rv,v})=>etiquetaPuerto({
         s,rv,clase:tipo,
         valor:`${fmtVar(v)} ${unidadDe(s)}`,
@@ -336,7 +341,7 @@ function puertosDelFiltro(){
     if(seleccion.tipo==='rio'){
       if(seleccion.id!==FILTRO_TODOS&&rv.id!==seleccion.id) return;
     }else if(!seleccion.nombres.has(s.n)) return;
-    out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name});
+    out.push({n:s.n,r:s.r,cv:rv.cv,rio:rv.name,al:s.al??null,ev:s.ev??null});
   });
   return out;
 }
@@ -385,19 +390,73 @@ function chartTheme(){
     tooltipBd: dark?'rgba(244,250,252,.1)':'rgba(6,32,51,.1)',
   };
 }
+// Tooltip sólo si el cursor pisa un punto, en todos los filtros y en represas.
+const INTERACCION_PUNTO={mode:'nearest',intersect:true};
+
+// Líneas horizontales de alerta/evacuación: sólo con un puerto visible.
+const pluginUmbrales={
+  id:'umbralesHidricos',
+  afterDatasetsDraw(c){
+    const vis=c.data.datasets.filter((_,i)=>c.isDatasetVisible(i));
+    if(vis.length!==1) return;
+    const d=vis[0];
+    const area=c.chartArea;
+    const yScale=c.scales.y;
+    if(!area||!yScale) return;
+    const ctx=c.ctx;
+    const linea=(valor,color,titulo)=>{
+      if(valor===null||valor===undefined||!isFinite(valor)) return;
+      const y=yScale.getPixelForValue(valor);
+      if(y<area.top||y>area.bottom) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.strokeStyle=color;
+      ctx.lineWidth=1.6;
+      ctx.setLineDash([6,4]);
+      ctx.moveTo(area.left,y);
+      ctx.lineTo(area.right,y);
+      ctx.stroke();
+      const txt=`${titulo} ${formatoAR(valor)} m`;
+      ctx.font="600 10px Montserrat, system-ui, sans-serif";
+      const tw=ctx.measureText(txt).width;
+      const tx=area.right-tw-8;
+      const ty=y-6;
+      ctx.fillStyle=CS('--surf');
+      ctx.fillRect(tx-3,ty-10,tw+6,14);
+      ctx.fillStyle=color;
+      ctx.fillText(txt,tx,ty);
+      ctx.restore();
+    };
+    linea(d.al,CS('--alerta-oficial'),'Alerta');
+    linea(d.ev,CS('--evacuacion'),'Evacuación');
+  }
+};
+function incluirUmbralesEnEscala(axis){
+  const vis=axis.chart.data.datasets.filter((_,i)=>axis.chart.isDatasetVisible(i));
+  if(vis.length!==1) return;
+  const d=vis[0];
+  for(const v of [d.al,d.ev]){
+    if(v===null||v===undefined||!isFinite(v)) continue;
+    if(v>axis.max) axis.max=v;
+    if(v<axis.min) axis.min=v;
+  }
+  const span=axis.max-axis.min||1;
+  axis.max+=span*0.08;
+}
 function buildChart(){
   const ctx=document.getElementById('js-chart').getContext('2d');
   const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
   const puertos=puertosDelFiltro();
-  // Con muchas series no hay leyenda ni colores por puerto que se puedan leer:
-  // se pinta cada línea con el color de su río y se identifica el puerto al
-  // pasar el mouse. Con pocas (un río, o un filtro desde un panel) entra la
-  // leyenda y cada puerto recibe su propio color.
+  // Con muchas series cada línea toma el color de su río; con pocas (un río
+  // o un filtro puntual) cada puerto recibe su propio color.
   const muchos=puertos.length>CAT_L.length;
   const sets=puertos.map((s,i)=>{
     const col=muchos?CS(s.cv):COLS[i%COLS.length];
     return {
       label:muchos?`${s.n} · ${s.rio}`:s.n,
+      nombre:s.n,
+      al:s.al??null,
+      ev:s.ev??null,
       data:s.r.map(v=>v===null?null:v),
       borderColor:col,backgroundColor:col+'18',
       borderWidth:muchos?1.5:2,
@@ -409,20 +468,58 @@ function buildChart(){
   });
   if(chart) chart.destroy();
   chart=new Chart(ctx,{
-    type:'line',data:{labels:DATE_LBL,datasets:sets},
+    type:'line',
+    plugins:[pluginUmbrales],
+    data:{labels:DATE_LBL,datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
-      interaction:muchos?{mode:'nearest',intersect:true}:{mode:'index',intersect:false},
+      interaction:INTERACCION_PUNTO,
       plugins:{
-        legend:{display:!muchos,position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
-        tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
-          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}}
+        legend:{display:false},
+        tooltip:{
+          enabled:true,
+          mode:'nearest',
+          intersect:true,
+          backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,
+          titleColor:txtc,bodyColor:txtc,
+          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}
+        }
       },
       scales:{
         x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11}}},
-        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>formatoAR(v)+' m'}},
+        y:{
+          grid:{color:gc,lineWidth:1},border:{color:bc},
+          ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:11},callback:v=>formatoAR(v)+' m'},
+          afterDataLimits:incluirUmbralesEnEscala,
+        },
       }
     }
   });
+  renderLeyenda();
+}
+function renderLeyenda(){
+  const el=document.getElementById('js-legend');
+  if(!el) return;
+  if(!chart||!chart.data.datasets.length){el.innerHTML='';return;}
+  el.innerHTML=chart.data.datasets.map((d,i)=>{
+    const on=chart.isDatasetVisible(i)?'on':'';
+    const nom=d.nombre||d.label;
+    return `<button type="button" class="leg ${on}" data-ds="${i}" style="--c:${d.borderColor}"`+
+      ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}</button>`;
+  }).join('');
+}
+function toggleTodosLosDatasets(){
+  if(!chart) return;
+  const alguno=chart.data.datasets.some((_,i)=>chart.isDatasetVisible(i));
+  const mostrar=!alguno;
+  chart.data.datasets.forEach((_,i)=>chart.setDatasetVisibility(i,mostrar));
+  chart.update();
+  renderLeyenda();
+}
+function toggleDataset(i){
+  if(!chart||i<0||i>=chart.data.datasets.length) return;
+  chart.setDatasetVisibility(i,!chart.isDatasetVisible(i));
+  chart.update();
+  renderLeyenda();
 }
 // Panel aparte para los puertos que informan caudal. Mismo estilo que el
 // gráfico principal, pero con su propia escala y su propia unidad.
@@ -443,10 +540,11 @@ function buildCaudalChart(){
   if(chartCaudal) chartCaudal.destroy();
   chartCaudal=new Chart(document.getElementById('js-caudal').getContext('2d'),{
     type:'line',data:{labels:DATE_LBL,datasets:sets},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    options:{responsive:true,maintainAspectRatio:false,interaction:INTERACCION_PUNTO,
       plugins:{
         legend:{position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
+          mode:'nearest',intersect:true,
           callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' '+unidad:'S/D'}`}}
       },
       scales:{
@@ -474,6 +572,10 @@ function renderToggles(){
   let html=botones.map(b=>
     `<button class="tog ${porRio&&b.id===seleccion.id?'on':''}" data-rio="${b.id}">${b.txt}</button>`).join('');
 
+  html+=`<button type="button" class="tog tog-all" data-accion="marcar-todos"`+
+    ` title="Si hay puertos visibles, los oculta; si no hay ninguno, los muestra todos">`+
+    `Marcar / Desmarcar Todos</button>`;
+
   // El contador es de líneas realmente dibujadas, que puede ser menor que los
   // puertos seleccionados si alguno mide caudal y quedó fuera de este gráfico.
   if(!porRio) html+=`<span class="filtro-activo ${seleccion.clase?'c-'+seleccion.clase:''}">`+
@@ -488,8 +590,15 @@ function renderToggles(){
 // en cada render, así que los listeners van una sola vez sobre los contenedores.
 function conectarFiltros(){
   document.getElementById('js-toggles').addEventListener('click',e=>{
+    const all=e.target.closest('[data-accion="marcar-todos"]');
+    if(all){ toggleTodosLosDatasets(); return; }
     const b=e.target.closest('[data-rio]');
     if(b) filtrarPorRio(b.dataset.rio);
+  });
+
+  document.getElementById('js-legend').addEventListener('click',e=>{
+    const b=e.target.closest('[data-ds]');
+    if(b) toggleDataset(+b.dataset.ds);
   });
 
   document.getElementById('js-oficial').addEventListener('click',e=>{
@@ -509,8 +618,7 @@ function conectarFiltros(){
     const grupo=e.target.closest('[data-grupo]');
     if(!grupo) return;
     const tipo=grupo.dataset.grupo;
-    const etiquetas={todas:'Con fluctuación',crecida:'Crecidas',bajante:'Bajantes'};
-    filtrarPuertos(puertosPorFluctuacion(tipo),etiquetas[tipo],tipo==='todas'?'':tipo);
+    filtrarPuertos(puertosPorFluctuacion(tipo),ETIQUETA_FLUCT[tipo],tipo==='todas'?'':tipo);
   });
 
   document.getElementById('js-stats').addEventListener('click',e=>{
@@ -546,67 +654,6 @@ function renderRecords(){
   }
   document.getElementById('js-records').innerHTML=
     h||`<div class="rec-empty">Todavía no hay lecturas registradas.</div>`;
-}
-const histCharts = {};
-function buildHistChart(rv, canvasId, visibleSet) {
-  const ctx = document.getElementById(canvasId);if (!ctx) return;
-  const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
-  const sets = rv.stations.filter(esAltura).map((s,i)=>({
-    label:s.n,data:s.r.map(v=>v===null?null:v),
-    borderColor:COLS[i%COLS.length],backgroundColor:COLS[i%COLS.length]+'14',
-    borderWidth:1.8,pointRadius:3,pointHoverRadius:5,tension:.2,spanGaps:false,fill:false,hidden:!visibleSet.has(s.n),
-  }));
-  if(histCharts[rv.id]) histCharts[rv.id].destroy();
-  histCharts[rv.id]=new Chart(ctx,{
-    type:'line',data:{labels:DATE_LBL,datasets:sets},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},
-        tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,
-          borderWidth:1,titleColor:txtc,bodyColor:txtc,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' m':'S/D'}`}}
-      },
-      scales:{
-        x:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:10},maxTicksLimit:12}},
-        y:{grid:{color:gc,lineWidth:1},border:{color:bc},ticks:{color:tc2,font:{family:"'Montserrat',sans-serif",size:10},callback:v=>formatoAR(v)+' m'}},
-      }
-    }
-  });
-}
-function renderHistorical() {
-  const wrap = document.getElementById('js-hist-panels');
-  let html = '';
-  // Se listan los 5 ríos con todos sus puertos de altura, incluso los que
-  // todavía no tienen lecturas: el tablero los tiene que mostrar desde el día
-  // uno. Los de caudal quedan afuera porque tienen su propio panel.
-  for (const rv of RIVERS) {
-    const stations = rv.stations.filter(esAltura);
-    if(!stations.length) continue;
-    const col = CS(rv.cv);
-    html+=`<div style="border-top:1px solid var(--border);">
-      <div style="padding:9px 16px 0;display:flex;align-items:center;gap:8px;">
-        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;display:inline-block;"></span>
-        <span style="font-family:var(--ff-cond);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">${rv.name}</span>
-      </div>
-      <div class="hist-tabs" id="hist-tabs-${rv.id}">
-        ${stations.map(s=>`<button class="hist-tab on" data-rv="${rv.id}" data-stn="${s.n}">${s.n}</button>`).join('')}
-      </div>
-      <div class="hist-chart-area"><canvas id="hist-canvas-${rv.id}"></canvas></div>
-    </div>`;
-  }
-  wrap.innerHTML = html;
-  for(const rv of RIVERS){
-    const stations=rv.stations.filter(esAltura);
-    if(!stations.length) continue;
-    const visible=new Set(stations.map(s=>s.n));
-    buildHistChart(rv,`hist-canvas-${rv.id}`,visible);
-  }
-  wrap.addEventListener('click',e=>{
-    const btn=e.target.closest('.hist-tab');if(!btn) return;
-    const rvId=btn.dataset.rv;const stn=btn.dataset.stn;
-    btn.classList.toggle('on');
-    const ch=histCharts[rvId];if(!ch) return;
-    const ds=ch.data.datasets.find(d=>d.label===stn);
-    if(ds){ds.hidden=!ds.hidden;ch.update();}
-  });
 }
 // Cartel de la esquina superior derecha. Muestra cuándo corrió el scraper por
 // última vez; si el archivo todavía no tiene "last_update" (historial viejo o
@@ -720,7 +767,7 @@ async function init(){
 
   renderDate();
   renderAlertasOficiales();renderFluctuacion();renderStats();
-  renderRivers();renderHistorical();
+  renderRivers();
   renderToggles();buildChart();buildCaudalChart();renderRecords();
   actualizarInicioDelRegistro();
   conectarFiltros();

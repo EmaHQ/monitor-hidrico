@@ -36,7 +36,7 @@
   <!-- Panel 1. Estado oficial: sólo aparece si hay puertos sobre umbral.
        Las etiquetas las inyecta renderAlertasOficiales(). -->
   <section class="alert-panel ap-oficial" id="js-oficial" hidden>
-    <div class="ap-hd"><span class="ap-title">Estado oficial: alerta y evacuación</span></div>
+    <div class="ap-hd"><span class="ap-title">Estado oficial: alerta / evacuación</span></div>
     <div class="ap-body" id="js-oficial-body"></div>
   </section>
 
@@ -57,8 +57,9 @@
 
   <div class="content">
     <div class="panel" id="js-chart-panel">
-      <div class="sec-hd"><span class="sec-title">Evolución por puerto — elegí un río para comparar</span></div>
+      <div class="sec-hd"><span class="sec-title">Evolución por Río / Puerto</span></div>
       <div class="ch-ctrl" id="js-toggles"></div>
+      <div class="ch-legend" id="js-legend"></div>
       <div class="ch-area"><canvas id="js-chart"></canvas></div>
     </div>
 
@@ -71,11 +72,6 @@
       <div class="sec-hd"><span class="sec-title" id="js-records-title">Máximos del período registrado</span></div>
       <!-- Las tarjetas las inyecta renderRecords() desde history.json. -->
       <div class="rec-grid" id="js-records"></div>
-    </div>
-
-    <div class="panel">
-      <div class="sec-hd"><span class="sec-title">Histórico por río — serie completa por puerto</span></div>
-      <div id="js-hist-panels"></div>
     </div>
 
     <div class="rivers" id="js-rivers"></div>
@@ -123,13 +119,13 @@
           <p class="modal-sub">Estado oficial, según los umbrales que publica cada organismo:</p>
           <ul class="modal-ref">
             <li>🔴 <span class="c-evacuacion ref-nom">Evacuación</span> — el puerto superó su nivel de evacuación.</li>
-            <li>🟡 <span class="c-alerta ref-nom">Alerta</span> — superó el nivel de alerta, pero todavía no el de evacuación.</li>
-            <li>🟢 <span class="c-estable ref-nom">Estable</span> — por debajo de los umbrales, o sin umbral publicado.</li>
+            <li>🟠 <span class="c-alerta ref-nom">Alerta</span> — superó el nivel de alerta, pero todavía no el de evacuación.</li>
+            <li>🔵 <span class="c-estable ref-nom">Estable</span> — por debajo de los umbrales, o sin umbral publicado.</li>
           </ul>
           <p class="modal-sub">Variación brusca en las últimas 24 horas:</p>
           <ul class="modal-ref">
-            <li>🔵 <span class="c-crecida ref-nom">Crecida</span> — subió más de 1 metro.</li>
-            <li>🟤 <span class="c-bajante ref-nom">Bajante</span> — bajó más de 1,50 metros.</li>
+            <li>🟡 <span class="c-crecida ref-nom">Aumento de caudal</span> — subió más de 1 metro.</li>
+            <li>🟢 <span class="c-bajante ref-nom">Disminución de caudal</span> — bajó más de 1,50 metros.</li>
           </ul>
         </section>
 
