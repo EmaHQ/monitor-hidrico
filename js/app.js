@@ -441,7 +441,7 @@ const pluginUmbrales={
       const txt=`${titulo} ${formatoAR(valor)} m`;
       ctx.font="600 10px Montserrat, system-ui, sans-serif";
       const tw=ctx.measureText(txt).width;
-      const tx=area.right-tw-8;
+      const tx=area.left+8;
       const ty=y-6;
       ctx.fillStyle=CS('--surf');
       ctx.fillRect(tx-3,ty-10,tw+6,14);
