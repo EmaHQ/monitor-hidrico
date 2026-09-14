@@ -814,7 +814,9 @@ def main() -> int:
     #    evacuación y el estado es distinto al de la corrida anterior.
     estados_actuales = evaluar_y_notificar(historial, lecturas, estados_previos)
     guardar_alertas(estados_actuales)
-    enviar_whatsapp("🤖 Test de Monitor Hídrico: Si leés esto, la conexión para varios celulares funciona perfecto. ¡El bot está vivo!")
+    print(f"DEBUG SECRETOS -> Teléfonos: {bool(os.getenv('TELEFONO_WA'))} | ApiKeys: {bool(os.getenv('APIKEY_WA'))}")
+    print("DEBUG: Intentando enviar WhatsApp...")
+    enviar_whatsapp("🤖 Test de Monitor Hídrico: Si leés esto, la conexión para varios celulares funciona perfecto.")
     return 0
 
 
