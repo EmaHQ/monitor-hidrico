@@ -672,24 +672,36 @@ def estado_oficial(nivel: float | None, alerta: float | None, evacuacion: float 
 
 
 def enviar_whatsapp(mensaje: str) -> None:
-    """Envía un texto por CallMeBot. Sin credenciales, sólo avisa y sigue."""
-    telefono = (os.environ.get("TELEFONO_WA") or "").strip()
-    apikey = (os.environ.get("APIKEY_WA") or "").strip()
-    if not telefono or not apikey:
+    """Envía un texto por CallMeBot a uno o más destinatarios.
+
+    TELEFONO_WA y APIKEY_WA aceptan varios valores separados por coma, en el
+    mismo orden: el i-ésimo teléfono usa la i-ésima apikey. Sin credenciales
+    se omite el envío y la corrida sigue.
+    """
+    crudo_tel = os.getenv("TELEFONO_WA")
+    crudo_key = os.getenv("APIKEY_WA")
+    if not crudo_tel or not crudo_key:
         print("Aviso: TELEFONO_WA o APIKEY_WA no configuradas; se omite el envío de WhatsApp")
         return
 
+    telefonos = [t.strip() for t in crudo_tel.split(",")]
+    apikeys = [k.strip() for k in crudo_key.split(",")]
     texto_codificado = urllib.parse.quote(mensaje)
-    url = (
-        f"https://api.callmebot.com/whatsapp.php"
-        f"?phone={telefono}&text={texto_codificado}&apikey={apikey}"
-    )
-    try:
-        respuesta = requests.get(url, timeout=30)
-        respuesta.raise_for_status()
-        log.info("WhatsApp enviado")
-    except requests.RequestException as error:
-        log.warning("No se pudo enviar WhatsApp: %s", error)
+
+    for telefono, apikey in zip(telefonos, apikeys):
+        if not telefono or not apikey:
+            continue
+        url = (
+            f"https://api.callmebot.com/whatsapp.php"
+            f"?phone={telefono}&text={texto_codificado}&apikey={apikey}"
+        )
+        try:
+            respuesta = requests.get(url, timeout=30)
+            respuesta.raise_for_status()
+            log.info("WhatsApp enviado a %s", telefono)
+        except Exception as error:  # noqa: BLE001 - un destinatario no debe frenar al resto
+            print(f"Error al enviar WhatsApp a {telefono}: {error}")
+            continue
 
 
 def evaluar_y_notificar(historial: dict, lecturas: dict[str, float | None], previos: dict) -> dict:

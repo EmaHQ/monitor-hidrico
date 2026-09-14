@@ -29,6 +29,8 @@ jobs:
           # La PNA bloquea las IP de los runners: el scraper detecta esta
           # variable y sale por ScraperAPI. En local, sin la variable, va directo.
           SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
+          # CallMeBot: varios destinatarios van separados por coma, en el
+          # mismo orden en TELEFONO_WA y APIKEY_WA.
           TELEFONO_WA: ${{ secrets.TELEFONO_WA }}
           APIKEY_WA: ${{ secrets.APIKEY_WA }}
         run: python backend/scraper.py
