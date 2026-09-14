@@ -2,8 +2,8 @@ name: Automatizacion Hidrometrica
 
 on:
   schedule:
-    # Ejecuta a las 11:00, 17:00 y 23:00 UTC (8:00, 14:00 y 20:00 hora de Argentina)
-    - cron: '0 11,17,23 * * *'
+    # Cada 4 horas (6 veces al día): 00:00, 04:00, 08:00, 12:00, 16:00 y 20:00 UTC
+    - cron: '0 */4 * * *'
   workflow_dispatch: # Permite ejecutarlo a mano con un botón
 
 jobs:
@@ -29,6 +29,8 @@ jobs:
           # La PNA bloquea las IP de los runners: el scraper detecta esta
           # variable y sale por ScraperAPI. En local, sin la variable, va directo.
           SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
+          TELEFONO_WA: ${{ secrets.TELEFONO_WA }}
+          APIKEY_WA: ${{ secrets.APIKEY_WA }}
         run: python backend/scraper.py
 
       - name: Guardar los datos nuevos
@@ -36,4 +38,5 @@ jobs:
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions@github.com'
           git add history.json
+          git add alertas.json 2>/dev/null || true
           git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Actualización automática de alturas" && git push)

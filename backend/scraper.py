@@ -35,6 +35,7 @@ import os
 import re
 import time
 import unicodedata
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -47,6 +48,7 @@ from bs4 import BeautifulSoup
 
 RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 ARCHIVO_HISTORIAL = RAIZ_PROYECTO / "history.json"
+ARCHIVO_ALERTAS = RAIZ_PROYECTO / "alertas.json"
 
 URL_PNA = "https://contenidosweb.prefecturanaval.gob.ar/alturas/"
 URL_DMH = "https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php"
@@ -628,6 +630,98 @@ def formatear_json(datos: dict) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Alertas WhatsApp (CallMeBot) y memoria de estados
+# ---------------------------------------------------------------------------
+
+def cargar_alertas(ruta: Path = ARCHIVO_ALERTAS) -> dict:
+    """Lee alertas.json con el estado oficial de la corrida anterior.
+
+    Si el archivo no existe o está roto, arrancamos con un diccionario vacío:
+    la primera corrida no debe cortar el scraper.
+    """
+    try:
+        with ruta.open(encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        if isinstance(datos, dict):
+            return datos
+        log.warning("%s no tiene un objeto JSON: se ignora", ruta.name)
+    except FileNotFoundError:
+        log.info("%s no existe todavía: memoria de alertas vacía", ruta.name)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        log.warning("No se pudo leer %s: %s", ruta, error)
+    return {}
+
+
+def guardar_alertas(estados: dict, destino: Path = ARCHIVO_ALERTAS) -> None:
+    with destino.open("w", encoding="utf-8") as archivo:
+        json.dump(estados, archivo, ensure_ascii=False, indent=2)
+        archivo.write("\n")
+    log.info("%s actualizado: %d puertos en memoria", destino.name, len(estados))
+
+
+def estado_oficial(nivel: float | None, alerta: float | None, evacuacion: float | None) -> str:
+    """Misma regla que el front-end: evacuación pisa alerta; sin dato -> nd."""
+    if nivel is None:
+        return "nd"
+    if evacuacion is not None and nivel >= evacuacion:
+        return "evacuacion"
+    if alerta is not None and nivel >= alerta:
+        return "alerta"
+    return "estable"
+
+
+def enviar_whatsapp(mensaje: str) -> None:
+    """Envía un texto por CallMeBot. Sin credenciales, sólo avisa y sigue."""
+    telefono = (os.environ.get("TELEFONO_WA") or "").strip()
+    apikey = (os.environ.get("APIKEY_WA") or "").strip()
+    if not telefono or not apikey:
+        print("Aviso: TELEFONO_WA o APIKEY_WA no configuradas; se omite el envío de WhatsApp")
+        return
+
+    texto_codificado = urllib.parse.quote(mensaje)
+    url = (
+        f"https://api.callmebot.com/whatsapp.php"
+        f"?phone={telefono}&text={texto_codificado}&apikey={apikey}"
+    )
+    try:
+        respuesta = requests.get(url, timeout=30)
+        respuesta.raise_for_status()
+        log.info("WhatsApp enviado")
+    except requests.RequestException as error:
+        log.warning("No se pudo enviar WhatsApp: %s", error)
+
+
+def evaluar_y_notificar(historial: dict, lecturas: dict[str, float | None], previos: dict) -> dict:
+    """Detecta puertos que entran en alerta/evacuación respecto de la corrida anterior."""
+    actuales = dict(previos)
+    for rio in historial.get("RIVERS", []):
+        for puerto in rio.get("stations", []):
+            nombre = puerto.get("n", "")
+            clave = normalizar(nombre)
+            if not nombre or clave not in lecturas:
+                continue
+
+            nivel = lecturas[clave]
+            estado = estado_oficial(nivel, puerto.get("al"), puerto.get("ev"))
+            anterior = previos.get(nombre)
+            actuales[nombre] = estado
+
+            if estado not in ("alerta", "evacuacion") or estado == anterior:
+                continue
+
+            etiqueta = "EVACUACIÓN" if estado == "evacuacion" else "ALERTA"
+            nivel_txt = "S/D" if nivel is None else f"{nivel:.2f}".replace(".", ",")
+            enviar_whatsapp(
+                f"⚠️ ALERTA HIDROLÓGICA ⚠️\n"
+                f"Puerto: {nombre}\n"
+                f"Nivel: {nivel_txt} m\n"
+                f"Estado: {etiqueta}"
+            )
+            log.info("Cambio de estado: %s %s -> %s (nivel %s m)", nombre, anterior or "—", estado, nivel_txt)
+    return actuales
+
+
 def guardar_historial(historial: dict, destino: Path = ARCHIVO_HISTORIAL) -> None:
     # "last_update" se reescribe en cada corrida y va primero en el archivo: es
     # el momento exacto en que terminó esta ejecución, y el front-end lo usa
@@ -671,6 +765,8 @@ def main() -> int:
         log.error("No se pudo leer %s: %s", ARCHIVO_HISTORIAL, error)
         return 1
 
+    estados_previos = cargar_alertas()
+
     # 2. Scraping. Cada fuente va en su propio try: si una se cae, seguimos con
     #    la otra y los puertos faltantes quedarán en null.
     registros: list[dict] = []
@@ -701,6 +797,11 @@ def main() -> int:
     sincronizar_longitudes(historial)
     registrar_lecturas(historial, indice, lecturas)
     guardar_historial(historial)
+
+    # 4. Memoria de alertas: notifica sólo si un puerto entra en alerta o
+    #    evacuación y el estado es distinto al de la corrida anterior.
+    estados_actuales = evaluar_y_notificar(historial, lecturas, estados_previos)
+    guardar_alertas(estados_actuales)
     return 0
 
 

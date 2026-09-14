@@ -202,7 +202,7 @@ function renderAlertasOficiales(){
       <div class="ap-pills">${items.map(({s,rv})=>etiquetaPuerto({
         s,rv,clase,
         valor:`${formatoAR(lastTwo(s.r)[1])} ${unidadDe(s)}`,
-        extra:estado==='evacuacion'?`evacuación ${formatoAR(s.ev)}`:`alerta ${formatoAR(s.al)}`,
+        extra:estado==='evacuacion'?`evacuación ${formatoAR(s.ev)} m`:`alerta ${formatoAR(s.al)} m`,
       })).join('')}</div>
     </div>`;
   }
