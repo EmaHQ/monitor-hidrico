@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-09-16 13:08:17",
+  "last_update": "2026-09-16 19:39:42",
   "DATES": [
     "2026-09-10",
     "2026-09-11",
@@ -32,7 +32,7 @@
           "n": "ALARACHE",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 0.01]
+          "r": [null, null, null, null, null, null, 0.02]
         },
         {
           "n": "AGUAS BLANCAS",
@@ -62,13 +62,13 @@
           "n": "EL COLORADO",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 2.46]
+          "r": [null, null, null, null, null, null, 2.45]
         },
         {
           "n": "VELAZ",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 3.42]
+          "r": [null, null, null, null, null, null, 3.43]
         }
       ]
     },
@@ -141,7 +141,7 @@
           "n": "ISLA DEL CERRITO",
           "al": 6.2,
           "ev": 6.8,
-          "r": [3.43, 3.32, 3.37, 3.5, 3.79, 4.02, 4.1]
+          "r": [3.43, 3.32, 3.37, 3.5, 3.79, 4.02, 4.21]
         }
       ]
     },
@@ -223,13 +223,13 @@
           "n": "CORRIENTES",
           "al": 6.5,
           "ev": 7.0,
-          "r": [3.14, 3.04, 3.05, 3.17, 3.4, 3.65, 3.76]
+          "r": [3.14, 3.04, 3.05, 3.17, 3.4, 3.65, 3.86]
         },
         {
           "n": "BARRANQUERAS",
           "al": 6.0,
           "ev": 6.5,
-          "r": [3.16, 3.02, 3.03, 3.15, 3.37, 3.63, 3.71]
+          "r": [3.16, 3.02, 3.03, 3.15, 3.37, 3.63, 3.82]
         },
         {
           "n": "EMPEDRADO",
@@ -247,7 +247,7 @@
           "n": "ESQUINA",
           "al": 5.0,
           "ev": 5.4,
-          "r": [2.71, 2.8, 2.8, 2.78, 2.73, 2.7, 2.7]
+          "r": [2.71, 2.8, 2.8, 2.78, 2.73, 2.7, 2.76]
         }
       ]
     },
