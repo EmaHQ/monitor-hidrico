@@ -50,11 +50,61 @@ const URLS_OFICIALES={
   'EL COLORADO':'',
   'VELAZ':'',
 };
+// Coordenadas [lat, lon] de cada puerto. [0, 0] = todavía sin georreferenciar:
+// el mapa no dibuja marcador ni hace flyTo sobre esos puntos.
+const COORDENADAS_PUERTOS={
+  'POZO HONDO':[0,0],
+  'CÁCERES':[0,0],
+  'BAHÍA NEGRA':[0,0],
+  'MURTINHO':[0,0],
+  'VALLEMI':[0,0],
+  'CONCEPCIÓN':[0,0],
+  'ASUNCIÓN':[-25.2637,-57.6359],
+  'BOUVIER':[0,0],
+  'FORMOSA':[0,0],
+  'BERMEJO':[0,0],
+  'LAS PALMAS':[0,0],
+  'ISLA DEL CERRITO':[0,0],
+  'CAPANEMA':[0,0],
+  'ANDRESITO':[0,0],
+  'IGUAZÚ':[0,0],
+  'ITAIPÚ':[0,0],
+  'LIBERTAD':[0,0],
+  'POSADAS':[0,0],
+  'ITUZAINGÓ':[0,0],
+  'ITÁ IBATÉ':[0,0],
+  'ITATÍ':[0,0],
+  'PASO DE LA PATRIA':[0,0],
+  'CORRIENTES':[-27.4606,-58.8341],
+  'BARRANQUERAS':[0,0],
+  'EMPEDRADO':[0,0],
+  'GOYA':[0,0],
+  'ESQUINA':[0,0],
+  'EL SOBERBIO':[0,0],
+  'SAN JAVIER':[0,0],
+  'SANTO TOMÉ':[0,0],
+  'ALVEAR':[0,0],
+  'PASO DE LOS LIBRES':[0,0],
+  'MONTE CASEROS':[0,0],
+  'ALARACHE':[0,0],
+  'AGUAS BLANCAS':[0,0],
+  'EMBARCACIÓN':[0,0],
+  'SAUZALITO':[0,0],
+  'LAVALLE':[0,0],
+  'EL COLORADO':[0,0],
+  'VELAZ':[0,0],
+};
+function coordsValidas(c){
+  return Array.isArray(c)&&c.length>=2&&!(c[0]===0&&c[1]===0);
+}
 function nombrePuertoHtml(s){
   const url=URLS_OFICIALES[s.n];
-  if(!url) return s.n;
-  return `<a class="link-puerto" href="${url}" target="_blank" rel="noopener noreferrer"`+
-    ` title="Ver ${s.n} en la fuente oficial">${s.n}</a>`;
+  const titulo=url
+    ? `Centrar el mapa en ${s.n} (Ctrl+clic abre la ficha oficial)`
+    : `Centrar el mapa en ${s.n}`;
+  const attrs=`class="link-puerto" data-flyto="${s.n}" title="${titulo}"`;
+  if(!url) return `<button type="button" ${attrs}>${s.n}</button>`;
+  return `<a ${attrs} href="${url}" target="_blank" rel="noopener noreferrer">${s.n}</a>`;
 }
 // Ventana del panel de máximos: se evalúan los últimos 90 registros diarios,
 // o el historial completo si todavía es más corto.
@@ -810,6 +860,120 @@ function conectarFiltros(){
     filtrarPuertos(puertosPorEstado(estado),etiquetas[estado],estado);
   });
 }
+
+// --- Mapa Leaflet -----------------------------------------------------------
+
+let mapa=null;
+let capaPuertos=null;
+const MARCADORES_PUERTOS={};
+const CENTRO_CUENCA_DEL_PLATA=[-26.0,-59.0];
+const ZOOM_CUENCA=6;
+const ZOOM_PUERTO=12;
+
+function etiquetaEstadoMarcador(s){
+  const oficial=estadoOficial(s);
+  if(oficial==='evacuacion') return 'Evacuación';
+  if(oficial==='alerta') return 'Alerta';
+  if(oficial==='nd') return 'Sin datos';
+  const f=fluctuacion(s);
+  if(f==='crecida') return 'Aumento de caudal';
+  if(f==='bajante') return 'Disminución de caudal';
+  return 'Estable';
+}
+function colorMarcador(s, rv){
+  const resalte=resalteGrafico(s);
+  if(resalte) return colorDeResalte(resalte)||CS('--estable');
+  return CS(rv.cv)||CS('--estable');
+}
+function radioMarcador(s){
+  const resalte=resalteGrafico(s);
+  if(resalte==='evacuacion') return 11;
+  if(resalte==='alerta') return 9;
+  if(resalte) return 8;
+  return 7;
+}
+
+function inicializarMapa(){
+  const el=document.getElementById('mapa');
+  if(!el||typeof L==='undefined'){
+    console.error('[monitor-hidrico] Leaflet no está disponible; el mapa no se inicializa.');
+    return;
+  }
+  mapa=L.map(el,{
+    center:CENTRO_CUENCA_DEL_PLATA,
+    zoom:ZOOM_CUENCA,
+    zoomControl:true,
+  });
+  // CartoDB Dark Matter: tiles gratuitos basados en OpenStreetMap, alineados
+  // con la paleta oscura del tablero.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd',
+    maxZoom:20,
+  }).addTo(mapa);
+  capaPuertos=L.layerGroup().addTo(mapa);
+  const invalidar=()=>{ if(mapa) mapa.invalidateSize(); };
+  mapa.whenReady(invalidar);
+  requestAnimationFrame(()=>{
+    invalidar();
+    requestAnimationFrame(invalidar);
+  });
+  window.addEventListener('resize',invalidar);
+  if(typeof ResizeObserver==='function'){
+    new ResizeObserver(invalidar).observe(el);
+  }
+}
+
+function popupPuerto(s, rv){
+  const cur=lastTwo(s.r)[1];
+  const nivel=cur===null?'S/D':`${formatoAR(cur)} ${unidadDe(s)}`;
+  return `<strong>${s.n}</strong><br>${rv.name}<br>${nivel} · ${etiquetaEstadoMarcador(s)}`;
+}
+
+function renderMarcadores(){
+  if(!mapa||!capaPuertos) return;
+  capaPuertos.clearLayers();
+  for(const k of Object.keys(MARCADORES_PUERTOS)) delete MARCADORES_PUERTOS[k];
+
+  cadaPuerto((s,rv)=>{
+    const c=COORDENADAS_PUERTOS[s.n];
+    if(!coordsValidas(c)) return;
+    const fill=colorMarcador(s,rv);
+    const mk=L.circleMarker(c,{
+      radius:radioMarcador(s),
+      color:'#F4FAFC',
+      weight:1.5,
+      opacity:.9,
+      fillColor:fill,
+      fillOpacity:.88,
+    }).bindPopup(popupPuerto(s,rv));
+    mk.addTo(capaPuertos);
+    MARCADORES_PUERTOS[s.n]=mk;
+  });
+}
+
+function volarAlPuerto(nombre){
+  const c=COORDENADAS_PUERTOS[nombre];
+  if(!mapa||!coordsValidas(c)) return;
+  const suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(suave) mapa.flyTo(c,ZOOM_PUERTO,{duration:1.15});
+  else mapa.setView(c,ZOOM_PUERTO);
+  const mk=MARCADORES_PUERTOS[nombre];
+  if(mk) mk.openPopup();
+}
+
+function conectarFiltroEspacial(){
+  const tablas=document.getElementById('js-rivers');
+  if(!tablas) return;
+  tablas.addEventListener('click',e=>{
+    const el=e.target.closest('[data-flyto]');
+    if(!el) return;
+    if(el.tagName==='A'&&(e.ctrlKey||e.metaKey||e.shiftKey||e.button===1)) return;
+    if(!coordsValidas(COORDENADAS_PUERTOS[el.dataset.flyto])) return;
+    e.preventDefault();
+    volarAlPuerto(el.dataset.flyto);
+  });
+}
 // Una tarjeta por puerto con su pico dentro de la ventana de los últimos
 // VENTANA_MAXIMOS días. Los puertos sin ninguna lectura en la ventana no
 // generan tarjeta.
@@ -930,6 +1094,8 @@ async function init(){
   // El LÉEME no depende de los datos: se conecta antes de pedir el historial
   // para que siga abriéndose aunque el fetch falle.
   conectarModal();
+  inicializarMapa();
+  conectarFiltroEspacial();
 
   let datos;
   try{
@@ -949,6 +1115,7 @@ async function init(){
   renderAlertasOficiales();renderFluctuacion();renderStats();
   renderRivers();
   renderToggles();buildChart();buildCaudalChart();renderRecords();
+  renderMarcadores();
   actualizarInicioDelRegistro();
   conectarFiltros();
 }

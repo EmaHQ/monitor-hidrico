@@ -7,9 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div id="layout-webgis">
+  <div id="panel-izquierdo">
   <header class="hdr">
     <div class="hdr-brand">
       <span class="hdr-name">MONITOR HÍDRICO</span>
@@ -86,6 +94,12 @@
   <footer>
     Fuentes: Prefectura Naval Argentina (PNA) | Dirección de Meteorología e Hidrología de Paraguay (DMH) | Sistema Nacional de Información Hídrica (SNIH)
   </footer>
+  </div><!-- #panel-izquierdo -->
+
+  <div id="panel-derecho">
+    <div id="mapa" role="application" aria-label="Mapa de puertos de la Cuenca del Plata"></div>
+  </div>
+  </div><!-- #layout-webgis -->
 
   <!-- Modal informativo. Lo abre el botón LÉEME de la cabecera; toda la lógica
        (abrir, cerrar, foco y tecla Escape) está en app.js. -->
