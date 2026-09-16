@@ -371,8 +371,7 @@ function renderFluctuacion(){
 }
 
 // Panel 3: resumen por estado oficial. Las tarjetas con al menos un puerto son
-// botones que filtran el gráfico; "Sin datos" nunca lo es, porque graficar
-// series vacías no muestra nada.
+// botones que filtran el gráfico, incluida "Sin datos".
 function renderStats(){
   const conteo={total:0,evacuacion:0,alerta:0,estable:0,nd:0};
   cadaPuerto(s=>{ conteo.total++; conteo[estadoOficial(s)]++; });
@@ -386,7 +385,7 @@ function renderStats(){
   ];
   document.getElementById('js-stats').innerHTML=tarjetas.map(t=>{
     const cuerpo=`<span class="stat-n">${t.n}</span><span class="stat-l">${t.lbl}</span>`;
-    if(t.estado==='nd'||!t.n) return `<div class="stat ${t.clase}">${cuerpo}</div>`;
+    if(!t.n) return `<div class="stat ${t.clase}">${cuerpo}</div>`;
     return `<button type="button" class="stat ${t.clase}" data-estado="${t.estado}"`+
       ` title="Ver estos puertos en el gráfico">${cuerpo}</button>`;
   }).join('');
@@ -663,6 +662,15 @@ function buildChart(){
   });
   renderLeyenda();
 }
+function claseEscalaLeyenda(nombre){
+  const s=puertoPorNombre(nombre);
+  if(!s) return '';
+  const resalte=resalteGrafico(s);
+  if(resalte==='evacuacion') return 'alerta-escala-3';
+  if(resalte==='alerta') return 'alerta-escala-2';
+  if(resalte==='crecida'||resalte==='bajante') return 'alerta-escala-1';
+  return '';
+}
 function renderLeyenda(){
   const el=document.getElementById('js-legend');
   if(!el) return;
@@ -671,7 +679,8 @@ function renderLeyenda(){
     const on=chart.isDatasetVisible(i)?'on':'';
     const nom=d.nombre||d.label;
     const fte=d.fuente?badgeFuente({n:nom,f:d.fuente}):'';
-    return `<button type="button" class="leg ${on}" data-ds="${i}" style="--c:${d.borderColor}"`+
+    const escala=claseEscalaLeyenda(nom);
+    return `<button type="button" class="leg ${on}${escala?' '+escala:''}" data-ds="${i}" style="--c:${d.borderColor}"`+
       ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}${fte}</button>`;
   }).join('');
 }
@@ -797,7 +806,7 @@ function conectarFiltros(){
     if(!b) return;
     const estado=b.dataset.estado;
     if(estado==='total'){ filtrarPorRio(FILTRO_TODOS); irAlGrafico(); return; }
-    const etiquetas={evacuacion:'En evacuación',alerta:'En alerta',estable:'Estables'};
+    const etiquetas={evacuacion:'En evacuación',alerta:'En alerta',estable:'Estables',nd:'Sin datos'};
     filtrarPuertos(puertosPorEstado(estado),etiquetas[estado],estado);
   });
 }
