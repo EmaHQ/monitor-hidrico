@@ -222,6 +222,54 @@ function claseFila(s){
   return '';
 }
 
+// Mismo criterio que la fila: evacuación pisa alerta; la fluctuación sólo
+// cuenta si el puerto sigue estable. null = paleta original (estable / S/D).
+function resalteGrafico(s){
+  const oficial=estadoOficial(s);
+  if(oficial==='evacuacion'||oficial==='alerta') return oficial;
+  if(oficial==='estable'){
+    const f=fluctuacion(s);
+    if(f==='crecida'||f==='bajante') return f;
+  }
+  return null;
+}
+const COLOR_RESALTE={
+  evacuacion:'--evacuacion',
+  alerta:'--alerta-oficial',
+  crecida:'--alerta-crecida',
+  bajante:'--alerta-bajante',
+};
+// Evacuación queda última (se dibuja encima). Estable/S/D = 0, atrás.
+const Z_RESALTE={bajante:1,crecida:2,alerta:3,evacuacion:4};
+function colorDeResalte(tipo){
+  const v=COLOR_RESALTE[tipo];
+  return v?CS(v):'';
+}
+function colorConAlpha(color, alpha){
+  const c=String(color||'').trim();
+  let m=/^#([0-9a-f]{3})$/i.exec(c);
+  if(m){
+    const [r,g,b]=m[1].split('').map(ch=>parseInt(ch+ch,16));
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  m=/^#([0-9a-f]{6})/i.exec(c);
+  if(m){
+    const n=parseInt(m[1],16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
+  }
+  m=/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(c);
+  if(m) return `rgba(${m[1]},${m[2]},${m[3]},${alpha})`;
+  return c;
+}
+function riosEnOrdenDeTablas(){
+  const rios=RIVERS.slice();
+  const i=rios.findIndex(rv=>rv.id==='bermejo');
+  if(i<0||i===rios.length-1) return rios;
+  const [bermejo]=rios.splice(i,1);
+  rios.push(bermejo);
+  return rios;
+}
+
 // Recorre los puertos de todos los ríos, en el orden de history.json.
 function cadaPuerto(fn){
   for(const rv of RIVERS) for(const s of rv.stations) fn(s,rv);
@@ -348,7 +396,7 @@ function renderRivers(){
   const N=5;
   const tblIdx=DATES.map((_,i)=>i).slice(-N);
   const dlbls=tblIdx.map(i=>{const[,m,day]=DATES[i].split('-');return`${+day}/${+m}`;});
-  for(const rv of RIVERS){
+  for(const rv of riosEnOrdenDeTablas()){
     const col=CS(rv.cv);
     let rows='';
     for(const s of rv.stations){
@@ -508,6 +556,26 @@ const pluginUmbrales={
     linea(d.ev,CS('--evacuacion'),'Evacuación');
   }
 };
+// Halo semitransparente alrededor de las líneas en alerta. El trazo sólido
+// queda con el grosor normal; la sombra del canvas hace de resplandor.
+const pluginHaloAlerta={
+  id:'haloAlerta',
+  beforeDatasetDraw(c, args){
+    const ds=c.data.datasets[args.index];
+    if(!ds||!ds.halo||!c.isDatasetVisible(args.index)) return;
+    const ctx=c.ctx;
+    ctx.save();
+    ctx.shadowColor=ds.haloColor||ds.borderColor;
+    ctx.shadowBlur=18;
+    ctx.shadowOffsetX=0;
+    ctx.shadowOffsetY=0;
+  },
+  afterDatasetDraw(c, args){
+    const ds=c.data.datasets[args.index];
+    if(!ds||!ds.halo||!c.isDatasetVisible(args.index)) return;
+    c.ctx.restore();
+  }
+};
 function incluirUmbralesEnEscala(axis){
   const vis=axis.chart.data.datasets.filter((_,i)=>axis.chart.isDatasetVisible(i));
   if(vis.length!==1) return;
@@ -528,7 +596,10 @@ function buildChart(){
   // o un filtro puntual) cada puerto recibe su propio color.
   const muchos=puertos.length>CAT_L.length;
   const sets=puertos.map((s,i)=>{
-    const col=muchos?CS(s.cv):COLS[i%COLS.length];
+    const paleta=muchos?CS(s.cv):COLS[i%COLS.length];
+    const origen=puertoPorNombre(s.n)||s;
+    const resalte=resalteGrafico(origen);
+    const col=resalte?colorDeResalte(resalte)||paleta:paleta;
     return {
       label:muchos?`${s.n} · ${s.rio}`:s.n,
       nombre:s.n,
@@ -538,17 +609,26 @@ function buildChart(){
       ev:s.ev??null,
       data:s.r.map(v=>v===null?null:v),
       borderColor:col,backgroundColor:col+'18',
-      borderWidth:muchos?1.5:2,
+      // En alerta el trazo central se engrosa; el halo del plugin va aparte.
+      borderWidth:resalte?4:2,
       // pointRadius > 0 incluso con muchas series: con una sola fecha cargada,
       // una línea sin puntos no dibujaría nada.
       pointRadius:muchos?2:4,pointHoverRadius:6,
       tension:.2,spanGaps:false,fill:false,
+      halo:!!resalte,
+      haloColor:resalte?colorConAlpha(col,.55):null,
+      // Chart.js: menor `order` se dibuja encima. 1 = alerta al frente, 99 = atrás.
+      order:resalte?1:99,
+      z:resalte?Z_RESALTE[resalte]||1:0,
     };
   });
+  // Leyenda: sin alerta primero, con alerta al final. El apilado visual lo
+  // resuelve `order`, no este sort.
+  sets.sort((a,b)=>a.z-b.z);
   if(chart) chart.destroy();
   chart=new Chart(ctx,{
     type:'line',
-    plugins:[pluginUmbrales],
+    plugins:[pluginUmbrales,pluginHaloAlerta],
     data:{labels:DATE_LBL,datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:INTERACCION_PUNTO,
