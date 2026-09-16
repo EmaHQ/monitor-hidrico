@@ -9,6 +9,7 @@
   --grid: #D3E4ED;
   --base: #9BB8C6;
   --pilcomayo: #6B4FA8;
+  --bermejo: #8A4B2F;
   --paraguay: #1A6B7A;
   --iguazu: #0B5CAB;
   --parana: #0D9B8A;
@@ -50,6 +51,7 @@
     --grid: #1A3342;
     --base: #2A4A5C;
     --pilcomayo: #9B87E8;
+    --bermejo: #D4895C;
     --paraguay: #5EB4C4;
     --iguazu: #4BA3E6;
     --parana: #2EC4B0;
@@ -85,6 +87,7 @@
   --grid: #1A3342;
   --base: #2A4A5C;
   --pilcomayo: #9B87E8;
+  --bermejo: #D4895C;
   --paraguay: #5EB4C4;
   --iguazu: #4BA3E6;
   --parana: #2EC4B0;
@@ -633,6 +636,10 @@ table.st tr.c-bajante:hover td {
 .badge-fuente.dmh {
   color: var(--uruguay);
   background: color-mix(in srgb, var(--uruguay) 16%, transparent);
+}
+.badge-fuente.snih {
+  color: var(--bermejo);
+  background: color-mix(in srgb, var(--bermejo) 16%, transparent);
 }
 .td-nm .badge-fuente,
 .rec-stn .badge-fuente { margin-left: 6px; }

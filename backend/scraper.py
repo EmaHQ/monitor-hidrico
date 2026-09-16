@@ -6,6 +6,8 @@ Fuentes:
      https://contenidosweb.prefecturanaval.gob.ar/alturas/
   2. DMH  — Dirección de Meteorología e Hidrología de Paraguay (estaciones convencionales)
      https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php
+  3. SNIH — Sistema Nacional de Información Hídrica (API JSON de mediciones actuales)
+     https://snih.hidricosargentina.gob.ar/MuestraDatos.aspx/LeerDatosActuales
 
 En vez de escribir una "foto" del día, el script mantiene la serie histórica
 completa en history.json (raíz del proyecto), con la forma:
@@ -52,6 +54,7 @@ ARCHIVO_ALERTAS = RAIZ_PROYECTO / "alertas.json"
 
 URL_PNA = "https://contenidosweb.prefecturanaval.gob.ar/alturas/"
 URL_DMH = "https://www.meteorologia.gov.py/nivel-rio/indexconvencional.php"
+URL_SNIH = "https://snih.hidricosargentina.gob.ar/MuestraDatos.aspx/LeerDatosActuales"
 
 # Toda fecha y hora que se escriba en history.json va en hora argentina. Es
 # importante fijar la zona: los runners de GitHub Actions corren en UTC y, sin
@@ -159,6 +162,20 @@ PUERTOS_DMH = {
     "CONCEPCION": "CONCEPCIÓN",
     "ASUNCION": "ASUNCIÓN",
 }
+
+# clave  = nombre del puerto en history.json
+# valor  = código de estación SNIH (el que espera el endpoint LeerDatosActuales).
+#          "COMPLETAR" = todavía sin código: scrap_snih() lo saltea en silencio.
+PUERTOS_SNIH = {
+    "ALARACHE": "10607",
+    "AGUAS BLANCAS": "10604",
+    "EMBARCACIÓN": "COMPLETAR",
+    "SAUZALITO": "COMPLETAR",
+    "LAVALLE": "212410",
+    "EL COLORADO": "12602",
+    "VELAZ": "12610",
+}
+CODIGO_SNIH_PENDIENTE = "COMPLETAR"
 
 # Poner en True para que el script imprima todos los puertos que encontró en
 # cada fuente. Sirve para copiar los nombres exactos al agregar puertos.
@@ -534,6 +551,75 @@ def scrapear_dmh() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Scraper 3: Sistema Nacional de Información Hídrica (SNIH)
+# ---------------------------------------------------------------------------
+
+def _altura_desde_mediciones_snih(mediciones) -> float | None:
+    """Devuelve el Valor de la medición cuyo NombreCodigo es 'Altura'."""
+    if not isinstance(mediciones, list):
+        return None
+    for medicion in mediciones:
+        if not isinstance(medicion, dict):
+            continue
+        if str(medicion.get("NombreCodigo") or "").strip() != "Altura":
+            continue
+        valor = medicion.get("Valor")
+        if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+            return float(valor)
+        return a_float(str(valor) if valor is not None else None)
+    return None
+
+
+def scrap_snih() -> dict[str, float] | None:
+    """Lee la altura actual de cada estación de PUERTOS_SNIH.
+
+    POST JSON a LeerDatosActuales. La respuesta trae data['d']['Mediciones'];
+    de ahí se toma el ítem con NombreCodigo == 'Altura'.
+
+    Devuelve {nombre_puerto: altura_m} o None si ninguna estación respondió.
+    Una estación fallida no corta a las demás ni al resto del scraper.
+    """
+    lecturas: dict[str, float] = {}
+    headers = {
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    for puerto, codigo in PUERTOS_SNIH.items():
+        codigo = str(codigo or "").strip()
+        if not codigo or codigo.upper() == CODIGO_SNIH_PENDIENTE:
+            continue
+        try:
+            log.info("[SNIH] consultando %s (estación %s)", puerto, codigo)
+            respuesta = requests.post(
+                URL_SNIH,
+                json={"estacion": codigo},
+                headers=headers,
+                timeout=TIMEOUT,
+            )
+            respuesta.raise_for_status()
+            datos = respuesta.json()
+            cuerpo = datos.get("d")
+            # Algunos PageMethods de ASP.NET serializan `d` como string JSON.
+            if isinstance(cuerpo, str):
+                cuerpo = json.loads(cuerpo)
+            if not isinstance(cuerpo, dict):
+                log.warning("[SNIH] %s: respuesta 'd' inesperada", puerto)
+                continue
+            altura = _altura_desde_mediciones_snih(cuerpo.get("Mediciones"))
+            if altura is None:
+                log.warning("[SNIH] %s: no hay medición de Altura", puerto)
+                continue
+            lecturas[puerto] = altura
+            log.info("[SNIH]   %-20s %s m", puerto, altura)
+        except Exception as error:  # noqa: BLE001 - una estación caída no debe cortar al resto
+            log.warning("[SNIH] %s no disponible: %s", puerto, error)
+
+    return lecturas or None
+
+
+# ---------------------------------------------------------------------------
 # Historial (history.json)
 # ---------------------------------------------------------------------------
 
@@ -791,7 +877,15 @@ def main() -> int:
         except Exception as error:  # noqa: BLE001 - una fuente caída no debe cortar la otra
             log.error("[%s] fuente no disponible: %s", etiqueta, error)
 
-    if not registros:
+    lecturas_snih: dict[str, float] | None = None
+    try:
+        lecturas_snih = scrap_snih()
+    except Exception as error:  # noqa: BLE001 - el SNIH caído no debe cortar PNA/DMH
+        log.error("[SNIH] fuente no disponible: %s", error)
+    n_snih = len(lecturas_snih) if lecturas_snih else 0
+    log.info("[SNIH] %d puertos extraídos", n_snih)
+
+    if not registros and not lecturas_snih:
         log.error("No se extrajo ningún dato: history.json queda intacto")
         return 1
 
@@ -806,6 +900,8 @@ def main() -> int:
 
     # 3. Volcado al historial: fecha de hoy + un valor por puerto.
     lecturas = {normalizar(r["puerto"]): r["altura_m"] for r in registros}
+    if lecturas_snih:
+        lecturas.update({normalizar(nombre): valor for nombre, valor in lecturas_snih.items()})
     indice = indice_del_dia(historial, hoy_en_argentina())
     sincronizar_longitudes(historial)
     registrar_lecturas(historial, indice, lecturas)

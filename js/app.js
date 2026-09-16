@@ -41,6 +41,14 @@ const URLS_OFICIALES={
   'ALVEAR':'https://contenidosweb.prefecturanaval.gob.ar/alturas/?page=historico&tiempo=7&id=580',
   'PASO DE LOS LIBRES':'https://contenidosweb.prefecturanaval.gob.ar/alturas/?page=historico&tiempo=7&id=610',
   'MONTE CASEROS':'https://contenidosweb.prefecturanaval.gob.ar/alturas/?page=historico&tiempo=7&id=630',
+  // Río Bermejo (SNIH). URL vacía = ficha oficial todavía no cargada.
+  'ALARACHE':'',
+  'AGUAS BLANCAS':'',
+  'EMBARCACIÓN':'',
+  'SAUZALITO':'',
+  'LAVALLE':'',
+  'EL COLORADO':'',
+  'VELAZ':'',
 };
 function nombrePuertoHtml(s){
   const url=URLS_OFICIALES[s.n];
@@ -75,18 +83,23 @@ const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
 // Localidades del DMH paraguayo. Si el puerto trae "f"/"fuente" (PNA|DMH),
 // esa propiedad gana; si no, se infiere por nombre, igual que en el scraper.
 const FUENTES_DMH=new Set(['POZO HONDO','CÁCERES','BAHÍA NEGRA','MURTINHO','VALLEMI','CONCEPCIÓN','ASUNCIÓN']);
+const FUENTES_SNIH=new Set(['ALARACHE','AGUAS BLANCAS','EMBARCACIÓN','SAUZALITO','LAVALLE','EL COLORADO','VELAZ']);
 function fuenteDe(s){
   const f=String(s.f||s.fuente||'').toUpperCase();
-  if(f==='DMH'||f==='PNA') return f;
-  return FUENTES_DMH.has(s.n)?'DMH':'PNA';
+  if(f==='DMH'||f==='PNA'||f==='SNIH') return f;
+  if(FUENTES_DMH.has(s.n)) return 'DMH';
+  if(FUENTES_SNIH.has(s.n)) return 'SNIH';
+  return 'PNA';
 }
 function badgeFuente(s){
   const f=fuenteDe(s);
-  const cls=f==='DMH'?'dmh':'pna';
-  const titulo=f==='DMH'
-    ?'Dirección de Meteorología e Hidrología de Paraguay'
-    :'Prefectura Naval Argentina';
-  return `<span class="badge-fuente ${cls}" title="${titulo}">${f}</span>`;
+  const cls=f==='DMH'?'dmh':f==='SNIH'?'snih':'pna';
+  const titulos={
+    DMH:'Dirección de Meteorología e Hidrología de Paraguay',
+    PNA:'Prefectura Naval Argentina',
+    SNIH:'Sistema Nacional de Información Hídrica',
+  };
+  return `<span class="badge-fuente ${cls}" title="${titulos[f]||f}">${f}</span>`;
 }
 // Números al estándar argentino: dos decimales fijos y coma. 14 -> '14,00'.
 function formatoAR(num){
