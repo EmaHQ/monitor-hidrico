@@ -749,7 +749,7 @@ function renderToggles(){
   let html=botones.map(b=>
     `<button class="tog ${porRio&&b.id===seleccion.id?'on':''}" data-rio="${b.id}">${b.txt}</button>`).join('');
 
-  html+=`<button type="button" class="tog tog-all" data-accion="marcar-todos"`+
+  html+=`<button type="button" class="tog btn-toggle-all" data-accion="marcar-todos"`+
     ` title="Si hay puertos visibles, los oculta; si no hay ninguno, los muestra todos">`+
     `Marcar / Desmarcar Todos</button>`;
 

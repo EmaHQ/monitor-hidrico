@@ -541,9 +541,46 @@ table.st tr.c-bajante:hover td {
   background: rgba(11, 92, 171, .08);
   color: var(--iguazu);
 }
-.tog-all {
+.btn-toggle-all {
   margin-left: 4px;
-  border-style: dashed;
+  border: 1px solid #0B5CAB;
+  background: #0B5CAB;
+  color: #F4FAFC;
+  cursor: pointer;
+}
+.btn-toggle-all:hover,
+.btn-toggle-all:focus-visible {
+  background: #1A78C9;
+  border-color: #1A78C9;
+  color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #0B5CAB 40%, transparent);
+  outline: none;
+}
+.btn-toggle-all:active {
+  background: #094A91;
+  border-color: #094A91;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-toggle-all {
+    background: #1A78C9;
+    border-color: #1A78C9;
+  }
+  :root:not([data-theme="light"]) .btn-toggle-all:hover,
+  :root:not([data-theme="light"]) .btn-toggle-all:focus-visible {
+    background: #3D94E0;
+    border-color: #3D94E0;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #4BA3E6 45%, transparent);
+  }
+}
+:root[data-theme="dark"] .btn-toggle-all {
+  background: #1A78C9;
+  border-color: #1A78C9;
+}
+:root[data-theme="dark"] .btn-toggle-all:hover,
+:root[data-theme="dark"] .btn-toggle-all:focus-visible {
+  background: #3D94E0;
+  border-color: #3D94E0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #4BA3E6 45%, transparent);
 }
 
 /* Aparece cuando el gráfico se filtró desde un panel de alertas o una tarjeta,
