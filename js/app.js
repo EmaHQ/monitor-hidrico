@@ -1050,6 +1050,126 @@ function conectarFiltroEspacial(){
     volarAlPuerto(el.dataset.flyto);
   });
 }
+
+// --- Gestor flotante de capas GeoJSON ---------------------------------------
+
+const capasGeoJSON={};
+let idCapaGeoJSON=0;
+const ESTILO_GEOJSON_DEF={
+  color:'#ffffff',
+  weight:2,
+  fillColor:'#1565C0',
+  fillOpacity:.5,
+  opacity:1,
+};
+
+function conectarGestorCapas(){
+  const widget=document.getElementById('gestor-capas-flotante');
+  const input=document.getElementById('input-geojson');
+  const btnColapsar=document.getElementById('js-colapsar-capas');
+  if(!widget||!input) return;
+  if(typeof L!=='undefined'){
+    L.DomEvent.disableClickPropagation(widget);
+    L.DomEvent.disableScrollPropagation(widget);
+  }
+  if(btnColapsar){
+    btnColapsar.addEventListener('click',()=>{
+      const colapsado=widget.classList.toggle('colapsado');
+      btnColapsar.textContent=colapsado?'▸':'▾';
+      btnColapsar.setAttribute('aria-expanded', colapsado?'false':'true');
+      btnColapsar.title=colapsado?'Expandir el gestor de capas':'Colapsar el gestor de capas';
+    });
+  }
+  input.addEventListener('change',()=>{
+    const archivo=input.files&&input.files[0];
+    input.value='';
+    if(!archivo) return;
+    const reader=new FileReader();
+    reader.onload=ev=>cargarCapaGeoJSON(archivo.name, ev.target.result);
+    reader.onerror=()=>console.error('[monitor-hidrico] no se pudo leer el GeoJSON:', archivo.name);
+    reader.readAsText(archivo);
+  });
+}
+
+function cargarCapaGeoJSON(nombreArchivo, texto){
+  if(!mapa||typeof L==='undefined') return;
+  let geojson;
+  try{
+    geojson=JSON.parse(texto);
+  }catch(error){
+    console.error('[monitor-hidrico] GeoJSON inválido:', nombreArchivo, error);
+    return;
+  }
+  const estilo={...ESTILO_GEOJSON_DEF};
+  const capa=L.geoJSON(geojson,{
+    style:()=>({...estilo}),
+    pointToLayer:(feature, latlng)=>L.circleMarker(latlng,{
+      radius:6,
+      color:estilo.color,
+      weight:estilo.weight,
+      fillColor:estilo.fillColor,
+      fillOpacity:estilo.fillOpacity,
+      opacity:estilo.opacity,
+    }),
+  }).addTo(mapa);
+
+  const id=String(++idCapaGeoJSON);
+  capasGeoJSON[id]={capa,nombre:nombreArchivo,estilo};
+  agregarItemCapaGeoJSON(id, nombreArchivo, estilo);
+}
+
+function agregarItemCapaGeoJSON(id, nombreArchivo, estilo){
+  const lista=document.getElementById('lista-capas-geojson');
+  if(!lista) return;
+  const li=document.createElement('li');
+  li.dataset.id=id;
+
+  const vis=document.createElement('input');
+  vis.type='checkbox';
+  vis.checked=true;
+  vis.title='Mostrar u ocultar la capa';
+  vis.addEventListener('change',()=>{
+    const item=capasGeoJSON[id];
+    if(!item||!mapa) return;
+    if(vis.checked) item.capa.addTo(mapa);
+    else mapa.removeLayer(item.capa);
+  });
+
+  const nom=document.createElement('span');
+  nom.className='gc-nombre';
+  nom.textContent=nombreArchivo;
+  nom.title=nombreArchivo;
+
+  const color=document.createElement('input');
+  color.type='color';
+  color.value=estilo.fillColor;
+  color.title='Color de relleno y borde';
+  color.addEventListener('input',()=>{
+    const item=capasGeoJSON[id];
+    if(!item) return;
+    item.estilo.fillColor=color.value;
+    item.estilo.color=color.value;
+    item.capa.setStyle({fillColor:color.value,color:color.value});
+  });
+
+  const opacidad=document.createElement('input');
+  opacidad.type='range';
+  opacidad.min='0';
+  opacidad.max='1';
+  opacidad.step='0.05';
+  opacidad.value=String(estilo.fillOpacity);
+  opacidad.title='Opacidad de relleno';
+  opacidad.addEventListener('input',()=>{
+    const item=capasGeoJSON[id];
+    if(!item) return;
+    const val=Number(opacidad.value);
+    item.estilo.fillOpacity=val;
+    item.capa.setStyle({fillOpacity:val});
+  });
+
+  li.append(vis, nom, color, opacidad);
+  lista.appendChild(li);
+}
 // Una tarjeta por puerto con su pico dentro de la ventana de los últimos
 // VENTANA_MAXIMOS días. Los puertos sin ninguna lectura en la ventana no
 // generan tarjeta.
@@ -1261,6 +1381,7 @@ async function init(){
   conectarModal();
   conectarLayoutPaneles();
   inicializarMapa();
+  conectarGestorCapas();
   conectarFiltroEspacial();
 
   let datos;

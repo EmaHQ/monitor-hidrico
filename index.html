@@ -107,6 +107,20 @@
               aria-pressed="false" title="Maximizar el mapa">Maximizar</button>
       <button type="button" class="btn-layout btn-layout-mapa btn-mostrar-datos" id="js-mostrar-datos"
               title="Mostrar el análisis de datos">Análisis ▴</button>
+      <div id="gestor-capas-flotante">
+        <div class="gc-hd">
+          <span class="gc-title">Capas GeoJSON</span>
+          <button type="button" class="gc-colapsar" id="js-colapsar-capas"
+                  aria-expanded="true" title="Colapsar el gestor de capas">▾</button>
+        </div>
+        <div class="gc-body" id="js-capas-cuerpo">
+          <label class="btn-cargar-geojson">
+            Cargar Capa
+            <input type="file" id="input-geojson" accept=".geojson,.json">
+          </label>
+          <ul id="lista-capas-geojson"></ul>
+        </div>
+      </div>
     </div>
     <div id="panel-datos-inferior">
       <div class="pd-hd">
