@@ -899,17 +899,28 @@ function inicializarMapa(){
     console.error('[monitor-hidrico] Leaflet no está disponible; el mapa no se inicializa.');
     return;
   }
-  const mapaSatelital=L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
-      attribution:'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-      maxZoom:19,
-    });
+  const atribEsri='Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+  const urlSatelital='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const mapaSatelital=L.tileLayer(urlSatelital,{attribution:atribEsri,maxZoom:19});
   const mapaTopografico=L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom:19,
     });
+  const capaEtiquetas=L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{
+      attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin',
+      maxZoom:19,
+      pane:'overlayPane',
+    });
+  // Instancia propia de imagery: si se reusa mapaSatelital dentro del group,
+  // el control de capas marca Satélite e Híbrido al mismo tiempo.
+  const mapaHibrido=L.layerGroup([
+    L.tileLayer(urlSatelital,{attribution:atribEsri,maxZoom:19}),
+    capaEtiquetas,
+  ]);
   const baseMaps={
+    'Híbrido':mapaHibrido,
     'Satélite':mapaSatelital,
     'Topográfico':mapaTopografico,
   };
@@ -917,7 +928,7 @@ function inicializarMapa(){
     center:CENTRO_CUENCA_DEL_PLATA,
     zoom:ZOOM_CUENCA,
     zoomControl:true,
-    layers:[mapaSatelital],
+    layers:[mapaHibrido],
   });
   L.control.layers(baseMaps).addTo(mapa);
   capaPuertos=L.layerGroup().addTo(mapa);
