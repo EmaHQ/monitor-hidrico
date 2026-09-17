@@ -1479,7 +1479,21 @@ function calcularKPIs(datosFiltrados){
   setTxt('kpi-hombres', sumar('HOMBRES'));
   setTxt('kpi-mujeres', sumar('MUJERES'));
   setTxt('kpi-pcd', sumar('PCD'));
+  setTxt('kpi-riesgo', sumar('RIESGO_SALUD'));
   setTxt('kpi-evacuados', sumar('EVACUADOS'));
+
+  let sumaNinos=0, sumaAdultos=0, sumaMayores=0;
+  for(const row of filas){
+    sumaNinos+=parseInt(String(row.NINOS??'').replace(/\./g,''),10)||0;
+    sumaAdultos+=parseInt(String(row.ADULTOS??'').replace(/\./g,''),10)||0;
+    sumaMayores+=parseInt(String(row.MAYORES??'').replace(/\./g,''),10)||0;
+  }
+  const elNinos=document.getElementById('kpi-ninos');
+  if(elNinos) elNinos.innerText=sumaNinos.toLocaleString('es-AR');
+  const elAdultos=document.getElementById('kpi-adultos');
+  if(elAdultos) elAdultos.innerText=sumaAdultos.toLocaleString('es-AR');
+  const elMayores=document.getElementById('kpi-mayores');
+  if(elMayores) elMayores.innerText=sumaMayores.toLocaleString('es-AR');
 
   const destinos=[...new Set(filas.map(r=>String(r.DESTINOS||'').trim())
     .filter(d=>d&&d.toLowerCase()!=='ninguno'))];
