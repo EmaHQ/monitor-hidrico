@@ -18,6 +18,10 @@
 <body>
   <div id="layout-webgis">
   <div id="panel-izquierdo">
+  <div class="layout-toolbar">
+    <button type="button" class="btn-layout" id="js-max-izq"
+            aria-pressed="false" title="Maximizar el tablero">Maximizar</button>
+  </div>
   <header class="hdr">
     <div class="hdr-brand">
       <span class="hdr-name">MONITOR HÍDRICO</span>
@@ -97,7 +101,27 @@
   </div><!-- #panel-izquierdo -->
 
   <div id="panel-derecho">
-    <div id="mapa" role="application" aria-label="Mapa de puertos de la Cuenca del Plata"></div>
+    <div id="contenedor-mapa">
+      <div id="mapa" role="application" aria-label="Mapa de puertos de la Cuenca del Plata"></div>
+      <button type="button" class="btn-layout btn-layout-mapa" id="js-max-mapa"
+              aria-pressed="false" title="Maximizar el mapa">Maximizar</button>
+      <button type="button" class="btn-layout btn-layout-mapa btn-mostrar-datos" id="js-mostrar-datos"
+              title="Mostrar el análisis de datos">Análisis ▴</button>
+    </div>
+    <div id="panel-datos-inferior">
+      <div class="pd-hd">
+        <span class="pd-title">Análisis de Datos</span>
+        <div class="pd-acciones">
+          <button type="button" class="btn-layout" id="js-min-datos"
+                  title="Minimizar el análisis de datos">Minimizar</button>
+          <button type="button" class="btn-layout" id="js-max-datos"
+                  aria-pressed="false" title="Maximizar el análisis de datos">Maximizar</button>
+        </div>
+      </div>
+      <div class="pd-body">
+        <p>El análisis de series y comparaciones entre puertos se mostrará aquí.</p>
+      </div>
+    </div>
   </div>
   </div><!-- #layout-webgis -->
 

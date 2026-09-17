@@ -1110,10 +1110,100 @@ function fmtLargo(iso){
   return `${+d} de ${meses[+m-1]} de ${y}`;
 }
 
+// --- Layout modular (maximizar / minimizar paneles) -------------------------
+
+const CLASES_MAXIMIZACION=['maximizacion-izquierda','maximizacion-mapa','maximizacion-datos'];
+
+function layoutRoot(){
+  return document.getElementById('layout-webgis');
+}
+function refrescarTamanoMapa(){
+  setTimeout(()=>{
+    if(mapa) mapa.invalidateSize();
+    if(chart) chart.resize();
+    if(chartCaudal) chartCaudal.resize();
+  }, 300);
+}
+function sincronizarBotonesLayout(){
+  const root=layoutRoot();
+  if(!root) return;
+  const maxIzq=root.classList.contains('maximizacion-izquierda');
+  const maxMapa=root.classList.contains('maximizacion-mapa');
+  const maxDatos=root.classList.contains('maximizacion-datos');
+  const oculto=root.classList.contains('panel-inferior-oculto');
+
+  const izq=document.getElementById('js-max-izq');
+  if(izq){
+    izq.textContent=maxIzq?'Restaurar':'Maximizar';
+    izq.setAttribute('aria-pressed', maxIzq?'true':'false');
+    izq.title=maxIzq?'Restaurar el tablero al layout dividido':'Maximizar el tablero';
+  }
+  const btnMapa=document.getElementById('js-max-mapa');
+  if(btnMapa){
+    btnMapa.textContent=maxMapa?'Restaurar':'Maximizar';
+    btnMapa.setAttribute('aria-pressed', maxMapa?'true':'false');
+    btnMapa.title=maxMapa?'Restaurar el mapa al layout dividido':'Maximizar el mapa';
+  }
+  const btnDatos=document.getElementById('js-max-datos');
+  if(btnDatos){
+    btnDatos.textContent=maxDatos?'Restaurar':'Maximizar';
+    btnDatos.setAttribute('aria-pressed', maxDatos?'true':'false');
+    btnDatos.title=maxDatos?'Restaurar el análisis al layout dividido':'Maximizar el análisis de datos';
+  }
+  const min=document.getElementById('js-min-datos');
+  if(min){
+    min.textContent=oculto?'Mostrar':'Minimizar';
+    min.setAttribute('aria-pressed', oculto?'true':'false');
+    min.title=oculto?'Mostrar el análisis de datos':'Minimizar el análisis de datos';
+  }
+}
+function toggleMaximizacion(clase){
+  const root=layoutRoot();
+  if(!root) return;
+  const activo=root.classList.contains(clase);
+  root.classList.remove(...CLASES_MAXIMIZACION);
+  if(!activo) root.classList.add(clase);
+  sincronizarBotonesLayout();
+  refrescarTamanoMapa();
+}
+function togglePanelInferior(){
+  const root=layoutRoot();
+  if(!root) return;
+  if(root.classList.contains('maximizacion-datos')){
+    root.classList.remove(...CLASES_MAXIMIZACION);
+    root.classList.add('panel-inferior-oculto');
+  }else{
+    root.classList.toggle('panel-inferior-oculto');
+  }
+  sincronizarBotonesLayout();
+  refrescarTamanoMapa();
+}
+function mostrarPanelInferior(){
+  const root=layoutRoot();
+  if(!root) return;
+  root.classList.remove('panel-inferior-oculto');
+  sincronizarBotonesLayout();
+  refrescarTamanoMapa();
+}
+function conectarLayoutPaneles(){
+  const izq=document.getElementById('js-max-izq');
+  if(izq) izq.addEventListener('click',()=>toggleMaximizacion('maximizacion-izquierda'));
+  const btnMapa=document.getElementById('js-max-mapa');
+  if(btnMapa) btnMapa.addEventListener('click',()=>toggleMaximizacion('maximizacion-mapa'));
+  const btnDatos=document.getElementById('js-max-datos');
+  if(btnDatos) btnDatos.addEventListener('click',()=>toggleMaximizacion('maximizacion-datos'));
+  const min=document.getElementById('js-min-datos');
+  if(min) min.addEventListener('click',togglePanelInferior);
+  const mostrar=document.getElementById('js-mostrar-datos');
+  if(mostrar) mostrar.addEventListener('click',mostrarPanelInferior);
+  sincronizarBotonesLayout();
+}
+
 async function init(){
   // El LÉEME no depende de los datos: se conecta antes de pedir el historial
   // para que siga abriéndose aunque el fetch falle.
   conectarModal();
+  conectarLayoutPaneles();
   inicializarMapa();
   conectarFiltroEspacial();
 
