@@ -531,6 +531,8 @@ function filtrarPorRio(id){
   seleccion={tipo:'rio',id};
   renderToggles();
   buildChart();
+  sincronizarMarcadoresMapa();
+  ajustarVistaMapa();
 }
 // `clase` es el estado semántico (evacuacion, alerta, crecida...) y se usa para
 // pintar el indicador de filtro activo con el mismo color del panel de origen.
@@ -541,6 +543,8 @@ function filtrarPuertos(nombres,etiqueta,clase){
   renderToggles();
   buildChart();
   irAlGrafico();
+  sincronizarMarcadoresMapa();
+  ajustarVistaMapa();
 }
 function puertosDeCaudal(){
   const out=[];
@@ -741,12 +745,15 @@ function toggleTodosLosDatasets(){
   chart.data.datasets.forEach((_,i)=>chart.setDatasetVisibility(i,mostrar));
   chart.update();
   renderLeyenda();
+  sincronizarMarcadoresMapa();
+  ajustarVistaMapa();
 }
 function toggleDataset(i){
   if(!chart||i<0||i>=chart.data.datasets.length) return;
   chart.setDatasetVisibility(i,!chart.isDatasetVisible(i));
   chart.update();
   renderLeyenda();
+  sincronizarMarcadoresMapa();
 }
 // Panel aparte para los puertos que informan caudal. Mismo estilo que el
 // gráfico principal, pero con su propia escala y su propia unidad.
@@ -865,7 +872,8 @@ function conectarFiltros(){
 
 let mapa=null;
 let capaPuertos=null;
-const MARCADORES_PUERTOS={};
+const marcadoresEnMapa={};
+const MARCADORES_PUERTOS=marcadoresEnMapa;
 const CENTRO_CUENCA_DEL_PLATA=[-26.0,-59.0];
 const ZOOM_CUENCA=6;
 const ZOOM_PUERTO=12;
@@ -951,9 +959,11 @@ function popupPuerto(s, rv){
 }
 
 function renderMarcadores(){
-  if(!mapa||!capaPuertos) return;
-  capaPuertos.clearLayers();
-  for(const k of Object.keys(MARCADORES_PUERTOS)) delete MARCADORES_PUERTOS[k];
+  if(!mapa) return;
+  for(const mk of Object.values(marcadoresEnMapa)){
+    if(mapa.hasLayer(mk)) mapa.removeLayer(mk);
+  }
+  for(const k of Object.keys(marcadoresEnMapa)) delete marcadoresEnMapa[k];
 
   cadaPuerto((s,rv)=>{
     const c=COORDENADAS_PUERTOS[s.n];
@@ -967,9 +977,55 @@ function renderMarcadores(){
       fillColor:fill,
       fillOpacity:.88,
     }).bindPopup(popupPuerto(s,rv));
-    mk.addTo(capaPuertos);
-    MARCADORES_PUERTOS[s.n]=mk;
+    mk.addTo(mapa);
+    marcadoresEnMapa[s.n]=mk;
   });
+  sincronizarMarcadoresMapa();
+}
+
+function nombresVisiblesParaMapa(){
+  const visibles=new Set();
+  if(seleccion.tipo==='rio'){
+    cadaPuerto((s,rv)=>{
+      if(seleccion.id!==FILTRO_TODOS&&rv.id!==seleccion.id) return;
+      visibles.add(s.n);
+    });
+  }else if(seleccion.nombres){
+    seleccion.nombres.forEach(n=>visibles.add(n));
+  }
+  if(chart){
+    chart.data.datasets.forEach((d,i)=>{
+      if(!d.nombre) return;
+      if(!chart.isDatasetVisible(i)) visibles.delete(d.nombre);
+    });
+  }
+  return visibles;
+}
+
+function sincronizarMarcadoresMapa(){
+  if(!mapa) return;
+  const visibles=nombresVisiblesParaMapa();
+  for(const [nombre,mk] of Object.entries(marcadoresEnMapa)){
+    if(visibles.has(nombre)){
+      if(!mapa.hasLayer(mk)) mk.addTo(mapa);
+    }else if(mapa.hasLayer(mk)){
+      mapa.removeLayer(mk);
+    }
+  }
+}
+
+function ajustarVistaMapa(){
+  if(!mapa||typeof L==='undefined') return;
+  const puntos=[];
+  for(const mk of Object.values(marcadoresEnMapa)){
+    if(!mapa.hasLayer(mk)) continue;
+    const ll=mk.getLatLng();
+    if(ll) puntos.push(ll);
+  }
+  if(!puntos.length) return;
+  const bounds=L.latLngBounds(puntos);
+  const suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  mapa.fitBounds(bounds,{padding:[50,50],maxZoom:12,animate:suave});
 }
 
 function volarAlPuerto(nombre){
@@ -978,8 +1034,8 @@ function volarAlPuerto(nombre){
   const suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(suave) mapa.flyTo(c,ZOOM_PUERTO,{duration:1.15});
   else mapa.setView(c,ZOOM_PUERTO);
-  const mk=MARCADORES_PUERTOS[nombre];
-  if(mk) mk.openPopup();
+  const mk=marcadoresEnMapa[nombre];
+  if(mk&&mapa.hasLayer(mk)) mk.openPopup();
 }
 
 function conectarFiltroEspacial(){
