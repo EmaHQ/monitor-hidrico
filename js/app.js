@@ -1167,7 +1167,21 @@ function agregarItemCapaGeoJSON(id, nombreArchivo, estilo){
     item.capa.setStyle({fillOpacity:val});
   });
 
-  li.append(vis, nom, color, opacidad);
+  const borrar=document.createElement('button');
+  borrar.type='button';
+  borrar.className='btn-eliminar-capa';
+  borrar.title='Eliminar capa';
+  borrar.setAttribute('aria-label', `Eliminar ${nombreArchivo}`);
+  borrar.textContent='✖';
+  borrar.addEventListener('click',()=>{
+    const item=capasGeoJSON[id];
+    if(item&&mapa) mapa.removeLayer(item.capa);
+    delete capasGeoJSON[id];
+    delete capasGeoJSON[nombreArchivo];
+    li.remove();
+  });
+
+  li.append(vis, nom, color, opacidad, borrar);
   lista.appendChild(li);
 }
 // Una tarjeta por puerto con su pico dentro de la ventana de los últimos

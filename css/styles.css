@@ -374,6 +374,24 @@ body {
   cursor: pointer;
   accent-color: #4BA3E6;
 }
+.btn-eliminar-capa {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(244, 250, 252, .7);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .12s, transform .12s;
+}
+.btn-eliminar-capa:hover,
+.btn-eliminar-capa:focus-visible {
+  color: #ff4444;
+  transform: scale(1.1);
+  outline: none;
+}
 
 .pd-hd {
   display: flex;
