@@ -124,7 +124,7 @@
     </div>
     <div id="panel-datos-inferior">
       <div class="pd-hd">
-        <span class="pd-title">Análisis de Datos</span>
+        <span class="pd-title">Centro de Mando Operativo y Demográfico</span>
         <div class="pd-acciones">
           <button type="button" class="btn-layout" id="js-min-datos"
                   title="Minimizar el análisis de datos">Minimizar</button>
@@ -133,7 +133,96 @@
         </div>
       </div>
       <div class="pd-body">
-        <p>El análisis de series y comparaciones entre puertos se mostrará aquí.</p>
+        <div id="consola-operativa">
+          <section class="co-card co-filtros" aria-labelledby="co-tit-filtros">
+            <h3 class="co-kicker" id="co-tit-filtros">Filtros espaciales</h3>
+            <label class="co-lbl" for="js-filtro-provincia">Provincia</label>
+            <select id="js-filtro-provincia" class="co-select">
+              <option value="">Todas las provincias</option>
+              <option>Buenos Aires</option>
+              <option>Chaco</option>
+              <option>Corrientes</option>
+              <option>Entre Ríos</option>
+              <option>Formosa</option>
+              <option>Misiones</option>
+              <option>Salta</option>
+              <option>Santa Fe</option>
+            </select>
+            <label class="co-lbl" for="js-filtro-departamento">Departamento</label>
+            <select id="js-filtro-departamento" class="co-select">
+              <option value="">Todos los departamentos</option>
+              <option>Capital</option>
+              <option>Goya</option>
+              <option>Ituzaingó</option>
+              <option>Paso de los Libres</option>
+              <option>San Javier</option>
+            </select>
+            <label class="co-lbl" for="js-filtro-barrio">Barrio / Localidad</label>
+            <select id="js-filtro-barrio" class="co-select">
+              <option value="">Todas las localidades</option>
+              <option>Centro</option>
+              <option>Costanera</option>
+              <option>Bajada Grande</option>
+              <option>Puerto</option>
+            </select>
+          </section>
+
+          <section class="co-card co-demo" aria-labelledby="co-tit-demo">
+            <h3 class="co-kicker" id="co-tit-demo">Demografía base</h3>
+            <div class="co-metric">
+              <span class="co-metric-lbl">Población total</span>
+              <span class="co-metric-n co-demo-n">12.450</span>
+            </div>
+            <div class="co-split">
+              <div>
+                <span class="co-metric-lbl">Hombres</span>
+                <span class="co-split-n">6.120</span>
+              </div>
+              <div>
+                <span class="co-metric-lbl">Mujeres</span>
+                <span class="co-split-n">6.330</span>
+              </div>
+            </div>
+            <table class="co-tabla">
+              <caption>Rango etario</caption>
+              <tbody>
+                <tr><th>Niños (0–14)</th><td>2.180</td></tr>
+                <tr><th>Adultos (15–64)</th><td>8.420</td></tr>
+                <tr><th>Adultos mayores (65+)</th><td>1.850</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="co-card co-salud" aria-labelledby="co-tit-salud">
+            <h3 class="co-kicker" id="co-tit-salud">Vulnerabilidad y salud</h3>
+            <div class="co-alert-row">
+              <span class="co-metric-lbl">Personas con discapacidad (PCD)</span>
+              <span class="co-alert-n">218</span>
+            </div>
+            <p class="co-alert-note">Prioridad de evacuación asistida y accesibilidad en centros de destino.</p>
+            <div class="co-alert-row">
+              <span class="co-metric-lbl">Condiciones de salud / Electrodependientes</span>
+              <span class="co-alert-n">34</span>
+            </div>
+            <p class="co-alert-note">Requieren energía continua y traslado con soporte médico.</p>
+          </section>
+
+          <section class="co-card co-ops" aria-labelledby="co-tit-ops">
+            <h3 class="co-kicker" id="co-tit-ops">Operativa y logística</h3>
+            <div class="co-metric">
+              <span class="co-metric-lbl">Evacuados actuales</span>
+              <span class="co-metric-n co-evac-n">186</span>
+            </div>
+            <table class="co-tabla">
+              <caption>Centros de destino</caption>
+              <tbody>
+                <tr><th>Escuela N° 2</th><td>150 personas</td></tr>
+                <tr><th>Club Náutico</th><td>24 personas</td></tr>
+                <tr><th>Polideportivo municipal</th><td>12 personas</td></tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
       </div>
     </div>
   </div>
