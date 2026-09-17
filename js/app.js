@@ -1389,6 +1389,196 @@ function conectarLayoutPaneles(){
   sincronizarBotonesLayout();
 }
 
+// --- Centro de mando operativo (Google Sheets CSV) --------------------------
+
+const URL_DEMOGRAFIA='https://docs.google.com/spreadsheets/d/e/2PACX-1vTIVsdRwVKObLvG6GZ7IAGnVJR4pYF9wPE5y1ZWcJQARx2rQgAmUoP8Tb4ad5JBg12EEwNev4Q2WWyG/pub?output=csv';
+let datosOperativos=[];
+
+function parsearCSV(texto){
+  const lineas=String(texto||'').replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
+  if(lineas.length<2) return [];
+  const claves=lineas[0].split(',').map(c=>c.trim());
+  const filas=[];
+  for(let i=1;i<lineas.length;i++){
+    const partes=lineas[i].split(',');
+    const obj={};
+    for(let j=0;j<claves.length;j++){
+      obj[claves[j]]=j===claves.length-1
+        ? partes.slice(j).join(',').trim()
+        : String(partes[j]??'').trim();
+    }
+    filas.push(obj);
+  }
+  return filas;
+}
+function numCSV(v){
+  const s=String(v??'').trim().replace(/\s/g,'');
+  if(!s) return 0;
+  const norm=s.includes(',')
+    ? s.replace(/\./g,'').replace(',', '.')
+    : s.replace(/\./g,'');
+  const n=Number(norm);
+  return Number.isFinite(n)?n:0;
+}
+function fmtEnteroAR(n){
+  return Math.round(Number(n)||0).toLocaleString('es-AR');
+}
+function escapeHtml(s){
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+function selOperativo(id){
+  return document.getElementById(id);
+}
+function opcionesUnicas(filas, clave){
+  return [...new Set(filas.map(r=>String(r[clave]||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+}
+function llenarSelect(el, valores, placeholder){
+  if(!el) return;
+  el.innerHTML='';
+  const vacio=document.createElement('option');
+  vacio.value='';
+  vacio.textContent=placeholder;
+  el.appendChild(vacio);
+  for(const v of valores){
+    const o=document.createElement('option');
+    o.value=v;
+    o.textContent=v;
+    el.appendChild(o);
+  }
+}
+function resetSelect(el, placeholder, deshabilitar){
+  llenarSelect(el, [], placeholder);
+  el.value='';
+  el.disabled=!!deshabilitar;
+}
+function filasOperativasFiltradas(){
+  const p=selOperativo('filtro-provincia')?.value||'';
+  const d=selOperativo('filtro-departamento')?.value||'';
+  const l=selOperativo('filtro-localidad')?.value||'';
+  const b=selOperativo('filtro-barrio')?.value||'';
+  return datosOperativos.filter(r=>
+    (!p||r.PROVINCIA===p)&&
+    (!d||r.DEPARTAMENTO===d)&&
+    (!l||r.LOCALIDAD===l)&&
+    (!b||r.BARRIO===b)
+  );
+}
+function calcularKPIs(datosFiltrados){
+  const filas=datosFiltrados||[];
+  const sumar=clave=>filas.reduce((n,r)=>n+numCSV(r[clave]),0);
+  const setTxt=(id, val)=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=fmtEnteroAR(val);
+  };
+  setTxt('kpi-poblacion', sumar('POB_TOTAL'));
+  setTxt('kpi-hombres', sumar('HOMBRES'));
+  setTxt('kpi-mujeres', sumar('MUJERES'));
+  setTxt('kpi-pcd', sumar('PCD'));
+  setTxt('kpi-evacuados', sumar('EVACUADOS'));
+
+  const destinos=[...new Set(filas.map(r=>String(r.DESTINOS||'').trim())
+    .filter(d=>d&&d.toLowerCase()!=='ninguno'))];
+  const lista=document.getElementById('kpi-destinos');
+  if(!lista) return;
+  if(!destinos.length){
+    lista.innerHTML='<li class="co-destinos-vacio">Sin centros de destino</li>';
+    return;
+  }
+  lista.innerHTML=destinos.map(d=>`<li>${escapeHtml(d)}</li>`).join('');
+}
+
+function actualizarFiltrosCascada(){
+  const selP=selOperativo('filtro-provincia');
+  const selD=selOperativo('filtro-departamento');
+  const selL=selOperativo('filtro-localidad');
+  const selB=selOperativo('filtro-barrio');
+  if(!selP||!selD||!selL||!selB) return;
+  llenarSelect(selP, opcionesUnicas(datosOperativos,'PROVINCIA'), 'Todas las provincias');
+  selP.disabled=false;
+  resetSelect(selD, 'Todos los departamentos', true);
+  resetSelect(selL, 'Todas las localidades', true);
+  resetSelect(selB, 'Todos los barrios', true);
+  calcularKPIs(datosOperativos);
+}
+
+function conectarFiltrosOperativos(){
+  const selP=selOperativo('filtro-provincia');
+  const selD=selOperativo('filtro-departamento');
+  const selL=selOperativo('filtro-localidad');
+  const selB=selOperativo('filtro-barrio');
+  if(!selP||!selD||!selL||!selB) return;
+
+  selP.addEventListener('change',()=>{
+    if(!selP.value){
+      resetSelect(selD, 'Todos los departamentos', true);
+      resetSelect(selL, 'Todas las localidades', true);
+      resetSelect(selB, 'Todos los barrios', true);
+      calcularKPIs(datosOperativos);
+      return;
+    }
+    const filas=datosOperativos.filter(r=>r.PROVINCIA===selP.value);
+    llenarSelect(selD, opcionesUnicas(filas,'DEPARTAMENTO'), 'Todos los departamentos');
+    selD.disabled=false;
+    selD.value='';
+    resetSelect(selL, 'Todas las localidades', true);
+    resetSelect(selB, 'Todos los barrios', true);
+    calcularKPIs(filas);
+  });
+
+  selD.addEventListener('change',()=>{
+    if(!selD.value){
+      resetSelect(selL, 'Todas las localidades', true);
+      resetSelect(selB, 'Todos los barrios', true);
+      calcularKPIs(filasOperativasFiltradas());
+      return;
+    }
+    const filas=datosOperativos.filter(r=>
+      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value);
+    llenarSelect(selL, opcionesUnicas(filas,'LOCALIDAD'), 'Todas las localidades');
+    selL.disabled=false;
+    selL.value='';
+    resetSelect(selB, 'Todos los barrios', true);
+    calcularKPIs(filas);
+  });
+
+  selL.addEventListener('change',()=>{
+    if(!selL.value){
+      resetSelect(selB, 'Todos los barrios', true);
+      calcularKPIs(filasOperativasFiltradas());
+      return;
+    }
+    const filas=datosOperativos.filter(r=>
+      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value&&r.LOCALIDAD===selL.value);
+    llenarSelect(selB, opcionesUnicas(filas,'BARRIO'), 'Todos los barrios');
+    selB.disabled=false;
+    selB.value='';
+    calcularKPIs(filas);
+  });
+
+  selB.addEventListener('change',()=>{
+    calcularKPIs(filasOperativasFiltradas());
+  });
+}
+
+async function cargarDatosOperativos(){
+  conectarFiltrosOperativos();
+  try{
+    const resp=await fetch(URL_DEMOGRAFIA,{cache:'no-store'});
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const texto=await resp.text();
+    datosOperativos=parsearCSV(texto);
+  }catch(error){
+    console.error('[monitor-hidrico] no se pudo cargar la demografía:', error);
+    datosOperativos=[];
+  }
+  actualizarFiltrosCascada();
+}
+
 async function init(){
   // El LÉEME no depende de los datos: se conecta antes de pedir el historial
   // para que siga abriéndose aunque el fetch falle.
@@ -1397,6 +1587,7 @@ async function init(){
   inicializarMapa();
   conectarGestorCapas();
   conectarFiltroEspacial();
+  cargarDatosOperativos();
 
   let datos;
   try{
