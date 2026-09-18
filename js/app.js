@@ -130,6 +130,8 @@ const CS = name => getComputedStyle(document.documentElement).getPropertyValue(n
 const UNIDAD_ALTURA='m';
 const unidadDe = s => s.u||UNIDAD_ALTURA;
 const esAltura = s => unidadDe(s)===UNIDAD_ALTURA;
+const REPRESAS=new Set(['CAPANEMA','ITAIPÚ']);
+const esRepresa = n => REPRESAS.has(n);
 // Localidades del DMH paraguayo. Si el puerto trae "f"/"fuente" (PNA|DMH),
 // esa propiedad gana; si no, se infiere por nombre, igual que en el scraper.
 const FUENTES_DMH=new Set(['POZO HONDO','CÁCERES','BAHÍA NEGRA','MURTINHO','VALLEMI','CONCEPCIÓN','ASUNCIÓN']);
@@ -771,11 +773,16 @@ function buildCaudalChart(){
   panel.hidden=!puertos.length;
   if(!puertos.length) return;
 
-  const {COLS,gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
+  const {gc,bc,tc2,txtc,tooltipBg,tooltipBd}=chartTheme();
   const unidad=puertos[0].u;
-  const sets=puertos.map((s,i)=>({
-    label:`${s.n} · ${s.rio}`,data:s.r.map(v=>v===null?null:v),
-    borderColor:COLS[i%COLS.length],backgroundColor:COLS[i%COLS.length]+'18',
+  const col=CS('--estable');
+  const sets=puertos.map(s=>({
+    label:`${s.n} · ${s.rio}`,
+    nombre:s.n,
+    rio:s.rio,
+    fuente:fuenteDe(s),
+    data:s.r.map(v=>v===null?null:v),
+    borderColor:col,backgroundColor:col+'18',
     borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.2,spanGaps:false,fill:false,
   }));
   if(chartCaudal) chartCaudal.destroy();
@@ -783,7 +790,7 @@ function buildCaudalChart(){
     type:'line',data:{labels:DATE_LBL,datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,interaction:INTERACCION_PUNTO,
       plugins:{
-        legend:{position:'top',labels:{color:txtc,boxWidth:12,padding:12,usePointStyle:true,pointStyle:'circle',font:{family:"'Montserrat',sans-serif",size:12,weight:'600'}}},
+        legend:{display:false},
         tooltip:{backgroundColor:tooltipBg,borderColor:tooltipBd,borderWidth:1,titleColor:txtc,bodyColor:txtc,
           mode:'nearest',intersect:true,
           callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!==null?formatoAR(c.parsed.y)+' '+unidad:'S/D'}`}}
@@ -794,6 +801,25 @@ function buildCaudalChart(){
       }
     }
   });
+  renderLeyendaCaudal();
+}
+function renderLeyendaCaudal(){
+  const el=document.getElementById('js-legend-caudal');
+  if(!el) return;
+  if(!chartCaudal||!chartCaudal.data.datasets.length){el.innerHTML='';return;}
+  el.innerHTML=chartCaudal.data.datasets.map((d,i)=>{
+    const on=chartCaudal.isDatasetVisible(i)?'on':'';
+    const nom=d.nombre||d.label;
+    const fte=d.fuente?badgeFuente({n:nom,f:d.fuente}):'';
+    return `<button type="button" class="leg c-estable ${on}" data-ds-caudal="${i}" data-represa="${nom}"`+
+      ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}${fte}</button>`;
+  }).join('');
+}
+function toggleDatasetCaudal(i){
+  if(!chartCaudal||i<0||i>=chartCaudal.data.datasets.length) return;
+  chartCaudal.setDatasetVisibility(i,!chartCaudal.isDatasetVisible(i));
+  chartCaudal.update();
+  renderLeyendaCaudal();
 }
 // Botonera del panel de comparación: "TODOS LOS PUERTOS" primero y después un
 // botón por río, en el orden en que vienen en history.json. Es de selección
@@ -843,6 +869,14 @@ function conectarFiltros(){
   document.getElementById('js-legend').addEventListener('click',e=>{
     const b=e.target.closest('[data-ds]');
     if(b) toggleDataset(+b.dataset.ds);
+  });
+
+  const leyendaCaudal=document.getElementById('js-legend-caudal');
+  if(leyendaCaudal) leyendaCaudal.addEventListener('click',e=>{
+    const b=e.target.closest('[data-ds-caudal]');
+    if(!b) return;
+    toggleDatasetCaudal(+b.dataset.dsCaudal);
+    if(b.dataset.represa) volarAlPuerto(b.dataset.represa);
   });
 
   document.getElementById('js-oficial').addEventListener('click',e=>{
@@ -996,15 +1030,16 @@ function nombresVisiblesParaMapa(){
   const visibles=new Set();
   if(seleccion.tipo==='rio'){
     cadaPuerto((s,rv)=>{
+      if(esRepresa(s.n)) return;
       if(seleccion.id!==FILTRO_TODOS&&rv.id!==seleccion.id) return;
       visibles.add(s.n);
     });
   }else if(seleccion.nombres){
-    seleccion.nombres.forEach(n=>visibles.add(n));
+    seleccion.nombres.forEach(n=>{ if(!esRepresa(n)) visibles.add(n); });
   }
   if(chart){
     chart.data.datasets.forEach((d,i)=>{
-      if(!d.nombre) return;
+      if(!d.nombre||esRepresa(d.nombre)) return;
       if(!chart.isDatasetVisible(i)) visibles.delete(d.nombre);
     });
   }
@@ -1015,6 +1050,7 @@ function latLngsDePuertos(nombres){
   const puntos=[];
   const lista=nombres?nombres:[];
   for(const nom of lista){
+    if(esRepresa(nom)) continue;
     const mk=marcadoresEnMapa[nom];
     if(!mk) continue;
     const ll=mk.getLatLng();
@@ -1024,7 +1060,8 @@ function latLngsDePuertos(nombres){
 }
 function latLngsTodosLosPuertos(){
   const puntos=[];
-  for(const mk of Object.values(marcadoresEnMapa)){
+  for(const [nom,mk] of Object.entries(marcadoresEnMapa)){
+    if(esRepresa(nom)) continue;
     const ll=mk.getLatLng();
     if(ll) puntos.push(ll);
   }

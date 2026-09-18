@@ -1232,10 +1232,13 @@ table.st tr.c-bajante:hover td {
   opacity: .35;
 }
 .leg:hover { color: var(--ink2); border-color: var(--ink3); }
+.leg:not(.on) { opacity: .5; }
+.leg:not(.on):hover { opacity: .75; }
 .leg.on {
   border-color: color-mix(in srgb, var(--c, var(--estable)) 70%, var(--border));
   background: color-mix(in srgb, var(--c, var(--estable)) 12%, var(--surf));
   color: var(--c, var(--estable));
+  opacity: 1;
 }
 .leg.on::before { opacity: 1; }
 
