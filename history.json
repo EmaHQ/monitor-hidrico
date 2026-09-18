@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-09-18 15:52:00",
+  "last_update": "2026-09-18 19:17:05",
   "DATES": [
     "2026-09-10",
     "2026-09-11",
@@ -34,7 +34,7 @@
           "n": "ALARACHE",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.04]
+          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.05]
         },
         {
           "n": "AGUAS BLANCAS",
@@ -70,7 +70,7 @@
           "n": "VELAZ",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 3.43, 3.42, 3.43]
+          "r": [null, null, null, null, null, null, 3.43, 3.42, -999.0]
         }
       ]
     },
