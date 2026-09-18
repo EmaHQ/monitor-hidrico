@@ -1219,6 +1219,7 @@ table.st tr.c-bajante:hover td {
   font-weight: 600;
   letter-spacing: .04em;
   cursor: pointer;
+  --c: var(--estable);
   transition: border-color .12s, background .12s, color .12s, opacity .12s, box-shadow .12s, transform .12s;
 }
 .leg::before {
@@ -1232,9 +1233,9 @@ table.st tr.c-bajante:hover td {
 }
 .leg:hover { color: var(--ink2); border-color: var(--ink3); }
 .leg.on {
-  border-color: color-mix(in srgb, var(--c, var(--ink2)) 70%, var(--border));
-  background: color-mix(in srgb, var(--c, var(--ink2)) 12%, var(--surf));
-  color: var(--ink1);
+  border-color: color-mix(in srgb, var(--c, var(--estable)) 70%, var(--border));
+  background: color-mix(in srgb, var(--c, var(--estable)) 12%, var(--surf));
+  color: var(--c, var(--estable));
 }
 .leg.on::before { opacity: 1; }
 

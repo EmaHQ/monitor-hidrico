@@ -725,6 +725,15 @@ function claseEscalaLeyenda(nombre){
   if(resalte==='crecida'||resalte==='bajante') return 'alerta-escala-1';
   return '';
 }
+function claseEstadoLeyenda(nombre){
+  const s=puertoPorNombre(nombre);
+  const resalte=s?resalteGrafico(s):null;
+  if(resalte==='evacuacion') return 'c-evacuacion';
+  if(resalte==='alerta') return 'c-alerta';
+  if(resalte==='crecida') return 'c-crecida';
+  if(resalte==='bajante') return 'c-bajante';
+  return 'c-estable';
+}
 function renderLeyenda(){
   const el=document.getElementById('js-legend');
   if(!el) return;
@@ -734,7 +743,8 @@ function renderLeyenda(){
     const nom=d.nombre||d.label;
     const fte=d.fuente?badgeFuente({n:nom,f:d.fuente}):'';
     const escala=claseEscalaLeyenda(nom);
-    return `<button type="button" class="leg ${on}${escala?' '+escala:''}" data-ds="${i}" style="--c:${d.borderColor}"`+
+    const estado=claseEstadoLeyenda(nom);
+    return `<button type="button" class="leg ${estado} ${on}${escala?' '+escala:''}" data-ds="${i}"`+
       ` aria-pressed="${on?'true':'false'}" title="${d.label}">${nom}${fte}</button>`;
   }).join('');
 }
