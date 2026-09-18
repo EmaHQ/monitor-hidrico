@@ -531,8 +531,7 @@ function filtrarPorRio(id){
   seleccion={tipo:'rio',id};
   renderToggles();
   buildChart();
-  sincronizarMarcadoresMapa();
-  ajustarVistaMapa();
+  zoomInteligente();
 }
 // `clase` es el estado semántico (evacuacion, alerta, crecida...) y se usa para
 // pintar el indicador de filtro activo con el mismo color del panel de origen.
@@ -543,8 +542,7 @@ function filtrarPuertos(nombres,etiqueta,clase){
   renderToggles();
   buildChart();
   irAlGrafico();
-  sincronizarMarcadoresMapa();
-  ajustarVistaMapa();
+  zoomInteligente();
 }
 function puertosDeCaudal(){
   const out=[];
@@ -755,15 +753,14 @@ function toggleTodosLosDatasets(){
   chart.data.datasets.forEach((_,i)=>chart.setDatasetVisibility(i,mostrar));
   chart.update();
   renderLeyenda();
-  sincronizarMarcadoresMapa();
-  ajustarVistaMapa();
+  zoomInteligente();
 }
 function toggleDataset(i){
   if(!chart||i<0||i>=chart.data.datasets.length) return;
   chart.setDatasetVisibility(i,!chart.isDatasetVisible(i));
   chart.update();
   renderLeyenda();
-  sincronizarMarcadoresMapa();
+  zoomInteligente();
 }
 // Panel aparte para los puertos que informan caudal. Mismo estilo que el
 // gráfico principal, pero con su propia escala y su propia unidad.
@@ -898,16 +895,19 @@ function etiquetaEstadoMarcador(s){
   if(f==='bajante') return 'Disminución de caudal';
   return 'Estable';
 }
-function colorMarcador(s, rv){
+function colorMarcador(s){
   const resalte=resalteGrafico(s);
-  if(resalte) return colorDeResalte(resalte)||CS('--estable');
-  return CS(rv.cv)||CS('--estable');
+  if(resalte==='evacuacion') return CS('--evacuacion');
+  if(resalte==='alerta') return CS('--alerta-oficial');
+  if(resalte==='crecida') return CS('--alerta-crecida');
+  if(resalte==='bajante') return CS('--alerta-bajante');
+  return CS('--estable');
 }
 function radioMarcador(s){
   const resalte=resalteGrafico(s);
-  if(resalte==='evacuacion') return 11;
-  if(resalte==='alerta') return 9;
-  if(resalte) return 8;
+  if(resalte==='evacuacion') return 12;
+  if(resalte==='alerta') return 10;
+  if(resalte==='crecida'||resalte==='bajante') return 9;
   return 7;
 }
 
@@ -978,7 +978,7 @@ function renderMarcadores(){
   cadaPuerto((s,rv)=>{
     const c=COORDENADAS_PUERTOS[s.n];
     if(!coordsValidas(c)) return;
-    const fill=colorMarcador(s,rv);
+    const fill=colorMarcador(s);
     const mk=L.circleMarker(c,{
       radius:radioMarcador(s),
       color:'#F4FAFC',
@@ -990,7 +990,6 @@ function renderMarcadores(){
     mk.addTo(mapa);
     marcadoresEnMapa[s.n]=mk;
   });
-  sincronizarMarcadoresMapa();
 }
 
 function nombresVisiblesParaMapa(){
@@ -1012,30 +1011,41 @@ function nombresVisiblesParaMapa(){
   return visibles;
 }
 
-function sincronizarMarcadoresMapa(){
-  if(!mapa) return;
-  const visibles=nombresVisiblesParaMapa();
-  for(const [nombre,mk] of Object.entries(marcadoresEnMapa)){
-    if(visibles.has(nombre)){
-      if(!mapa.hasLayer(mk)) mk.addTo(mapa);
-    }else if(mapa.hasLayer(mk)){
-      mapa.removeLayer(mk);
-    }
-  }
-}
-
-function ajustarVistaMapa(){
-  if(!mapa||typeof L==='undefined') return;
+function latLngsDePuertos(nombres){
   const puntos=[];
-  for(const mk of Object.values(marcadoresEnMapa)){
-    if(!mapa.hasLayer(mk)) continue;
+  const lista=nombres?nombres:[];
+  for(const nom of lista){
+    const mk=marcadoresEnMapa[nom];
+    if(!mk) continue;
     const ll=mk.getLatLng();
     if(ll) puntos.push(ll);
   }
+  return puntos;
+}
+function latLngsTodosLosPuertos(){
+  const puntos=[];
+  for(const mk of Object.values(marcadoresEnMapa)){
+    const ll=mk.getLatLng();
+    if(ll) puntos.push(ll);
+  }
+  return puntos;
+}
+function zoomInteligente(){
+  if(!mapa||typeof L==='undefined') return;
+  const nombres=nombresVisiblesParaMapa();
+  const puntos=!nombres.size
+    ? latLngsTodosLosPuertos()
+    : latLngsDePuertos(nombres);
   if(!puntos.length) return;
-  const bounds=L.latLngBounds(puntos);
   const suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  mapa.fitBounds(bounds,{padding:[50,50],maxZoom:12,animate:suave});
+  if(!nombres.size||puntos.length>=2){
+    const bounds=L.latLngBounds(puntos);
+    if(suave) mapa.flyToBounds(bounds,{padding:[50,50]});
+    else mapa.fitBounds(bounds,{padding:[50,50],animate:false});
+    return;
+  }
+  if(suave) mapa.flyTo(puntos[0],10,{duration:1.15});
+  else mapa.setView(puntos[0],10);
 }
 
 function volarAlPuerto(nombre){
