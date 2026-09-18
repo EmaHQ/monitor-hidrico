@@ -108,6 +108,7 @@
               aria-pressed="false" title="Maximizar el mapa">Maximizar</button>
       <button type="button" class="btn-layout btn-layout-mapa btn-mostrar-datos" id="js-mostrar-datos"
               title="Mostrar el análisis de datos">Análisis ▴</button>
+      <button type="button" id="btn-referencias" class="map-btn-discreto">ℹ️ Referencias</button>
       <div id="gestor-capas-flotante">
         <div class="gc-hd">
           <span class="gc-title">Capas GeoJSON</span>
@@ -279,6 +280,20 @@
       </div>
     </div>
   </div>
+
+  <dialog id="modal-referencias" aria-labelledby="ref-mapa-titulo">
+    <button type="button" class="modal-ref-x" id="js-cerrar-referencias" aria-label="Cerrar referencias">✕</button>
+    <h3 id="ref-mapa-titulo">Interpretación de Estados Hídricos</h3>
+    <p>Los marcadores en el mapa (puertos, represas y barras hidrométricas) utilizan un código de colores propio para reflejar la situación actual:</p>
+    <ul>
+      <li><span class="ref-color" style="background: #1565C0"></span> <strong>Estable:</strong> El nivel del río se mantiene dentro de los parámetros normales de oscilación.</li>
+      <li><span class="ref-color" style="background: #C9A227"></span> <strong>Aumento Brusco:</strong> Crecida abrupta superior a 1 metro en menos de 24 horas.</li>
+      <li><span class="ref-color" style="background: #2E7D32"></span> <strong>Descenso Brusco:</strong> Bajante abrupta de hasta 1,5 metros en menos de 24 horas.</li>
+      <li><span class="ref-color" style="background: #E65100"></span> <strong>Alerta:</strong> El nivel ha alcanzado la cota oficial de alerta.</li>
+      <li><span class="ref-color" style="background: #C62828"></span> <strong>Evacuación:</strong> El nivel ha alcanzado o superado la cota oficial de evacuación.</li>
+    </ul>
+    <p><small><em>Aclaración: Aunque esta escala cromática resulta intuitiva y guarda similitudes con la cartografía oficial de la Prefectura Naval Argentina (PNA), es un sistema de clasificación algorítmico exclusivo de este monitor.</em></small></p>
+  </dialog>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/app.js"></script>

@@ -430,9 +430,9 @@ function renderStats(){
 
   const tarjetas=[
     {estado:'total',      lbl:'Total',         n:conteo.total,      clase:''},
-    {estado:'evacuacion', lbl:'En evacuación', n:conteo.evacuacion, clase:'c-evacuacion'},
-    {estado:'alerta',     lbl:'En alerta',     n:conteo.alerta,     clase:'c-alerta'},
     {estado:'estable',    lbl:'Estables',      n:conteo.estable,    clase:'c-estable'},
+    {estado:'alerta',     lbl:'En alerta',     n:conteo.alerta,     clase:'c-alerta'},
+    {estado:'evacuacion', lbl:'En evacuación', n:conteo.evacuacion, clase:'c-evacuacion'},
     {estado:'nd',         lbl:'Sin datos',     n:conteo.nd,         clase:'s-nd'},
   ];
   document.getElementById('js-stats').innerHTML=tarjetas.map(t=>{
@@ -1336,6 +1336,15 @@ function conectarModal(){
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') cerrarModal(); });
 }
 
+function conectarModalReferencias(){
+  const modal=document.getElementById('modal-referencias');
+  const btn=document.getElementById('btn-referencias');
+  const cerrar=document.getElementById('js-cerrar-referencias');
+  if(!modal||!btn||!cerrar||typeof modal.showModal!=='function') return;
+  btn.addEventListener('click',()=>modal.showModal());
+  cerrar.addEventListener('click',()=>modal.close());
+}
+
 // La fecha de inicio del historial sale del propio archivo, así el texto del
 // modal no envejece. Si todavía no hay datos queda el texto fijo del HTML.
 function actualizarInicioDelRegistro(){
@@ -1654,6 +1663,7 @@ async function init(){
   // El LÉEME no depende de los datos: se conecta antes de pedir el historial
   // para que siga abriéndose aunque el fetch falle.
   conectarModal();
+  conectarModalReferencias();
   conectarLayoutPaneles();
   inicializarMapa();
   conectarGestorCapas();
