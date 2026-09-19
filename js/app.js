@@ -113,6 +113,9 @@ const VENTANA_MAXIMOS=90;
 // una crecida de 1 m ya es noticia, una bajante recién a partir de 1,50 m.
 const UMBRAL_CRECIDA=1.00;
 const UMBRAL_BAJANTE=-1.50;
+// Códigos de sensor offline del SNIH (p. ej. -999.00) no son alturas reales.
+// Cualquier lectura ≤ este umbral se trata como sin dato.
+const UMBRAL_CODIGO_SD=-50;
 const ETIQUETA_FLUCT={
   crecida:'Aumento de caudal',
   bajante:'Disminución de caudal',
@@ -157,8 +160,14 @@ function badgeFuente(s){
 function formatoAR(num){
   return Number(num).toFixed(2).replace('.', ',');
 }
+// Descarta no-números y códigos de error (≤ -50). El resto queda intacto.
+function limpiarLectura(v){
+  if(v===null||v===undefined||typeof v!=='number'||!isFinite(v)||v<=UMBRAL_CODIGO_SD) return null;
+  return v;
+}
 function fmt(v){
-  return v===null||v===undefined||typeof v!=='number'||!isFinite(v) ? 'S/D' : formatoAR(v);
+  const n=limpiarLectura(v);
+  return n===null ? 'S/D' : formatoAR(n);
 }
 // Variación con signo: '+1,32' / '-1,51'. El menos ya lo pone toFixed.
 function fmtVar(v){
@@ -660,7 +669,7 @@ function buildChart(){
       fuente:s.f||fuenteDe(s),
       al:s.al??null,
       ev:s.ev??null,
-      data:s.r.map(v=>v===null?null:v),
+      data:s.r.map(limpiarLectura),
       borderColor:col,backgroundColor:col+'18',
       // En alerta el trazo central se engrosa; el halo del plugin va aparte.
       borderWidth:resalte?4:2,
@@ -781,7 +790,7 @@ function buildCaudalChart(){
     nombre:s.n,
     rio:s.rio,
     fuente:fuenteDe(s),
-    data:s.r.map(v=>v===null?null:v),
+    data:s.r.map(limpiarLectura),
     borderColor:col,backgroundColor:col+'18',
     borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.2,spanGaps:false,fill:false,
   }));
@@ -1292,6 +1301,14 @@ async function cargarHistorial(){
   const datos=await resp.json();
   if(!Array.isArray(datos.DATES)||!Array.isArray(datos.RIVERS))
     throw new Error('history.json no tiene la forma {"DATES":[...],"RIVERS":[...]}');
+  // SNIH y otras fuentes meten -999 (u otros ≤ -50) cuando el sensor está
+  // offline. Si llegan al gráfico, rompen la escala del eje Y; si llegan a
+  // la tabla, parecen una altura real. Acá se convierten en null.
+  for(const rv of datos.RIVERS){
+    for(const s of rv.stations||[]){
+      if(Array.isArray(s.r)) s.r=s.r.map(limpiarLectura);
+    }
+  }
   return datos;
 }
 
