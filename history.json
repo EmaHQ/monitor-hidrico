@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-09-19 15:25:51",
+  "last_update": "2026-09-19 19:07:45",
   "DATES": [
     "2026-09-10",
     "2026-09-11",
@@ -35,7 +35,7 @@
           "n": "ALARACHE",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.05, 0.05]
+          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.05, 0.04]
         },
         {
           "n": "AGUAS BLANCAS",
