@@ -126,7 +126,7 @@
     </div>
     <div id="panel-datos-inferior">
       <div class="pd-hd">
-        <span class="pd-title">Centro de Mando Operativo y Demográfico</span>
+        <span class="pd-title">Información complementaria y demográfica</span>
         <div class="pd-acciones">
           <button type="button" class="btn-layout" id="js-min-datos"
                   title="Minimizar el análisis de datos">Minimizar</button>
@@ -146,9 +146,9 @@
             <select id="filtro-departamento" class="co-select" disabled>
               <option value="">Todos los departamentos</option>
             </select>
-            <label class="co-lbl" for="filtro-localidad">Localidad</label>
+            <label class="co-lbl" for="filtro-localidad">Municipio</label>
             <select id="filtro-localidad" class="co-select" disabled>
-              <option value="">Todas las localidades</option>
+              <option value="">Todos los municipios</option>
             </select>
             <label class="co-lbl" for="filtro-barrio">Barrio</label>
             <select id="filtro-barrio" class="co-select" disabled>
@@ -194,10 +194,15 @@
               <span class="co-alert-n" id="kpi-riesgo">0</span>
             </div>
             <p class="co-alert-note">Requieren asistencia médica prioritaria, traslado especial o soporte continuo.</p>
+            <div class="co-alert-row">
+              <span class="co-metric-lbl">Personas electro dependientes</span>
+              <span class="co-alert-n" id="kpi-electro">0</span>
+            </div>
+            <p class="co-alert-note">Requieren suministro eléctrico ininterrumpido por equipamiento médico vital.</p>
           </section>
 
           <section class="co-card co-ops" aria-labelledby="co-tit-ops">
-            <h3 class="co-kicker" id="co-tit-ops">Operativa y logística</h3>
+            <h3 class="co-kicker" id="co-tit-ops">Situación de evacuados</h3>
             <div class="co-metric">
               <span class="co-metric-lbl">Evacuados actuales</span>
               <span class="co-metric-n co-evac-n" id="kpi-evacuados">0</span>

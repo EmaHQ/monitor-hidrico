@@ -1539,6 +1539,13 @@ function resetSelect(el, placeholder, deshabilitar){
   el.value='';
   el.disabled=!!deshabilitar;
 }
+function municipioDe(r){
+  return String(r.MUNICIPIO||r.LOCALIDAD||'').trim();
+}
+function opcionesUnicasMunicipio(filas){
+  return [...new Set(filas.map(municipioDe).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+}
 function filasOperativasFiltradas(){
   const p=selOperativo('filtro-provincia')?.value||'';
   const d=selOperativo('filtro-departamento')?.value||'';
@@ -1547,7 +1554,7 @@ function filasOperativasFiltradas(){
   return datosOperativos.filter(r=>
     (!p||r.PROVINCIA===p)&&
     (!d||r.DEPARTAMENTO===d)&&
-    (!l||r.LOCALIDAD===l)&&
+    (!l||municipioDe(r)===l)&&
     (!b||r.BARRIO===b)
   );
 }
@@ -1563,6 +1570,7 @@ function calcularKPIs(datosFiltrados){
   setTxt('kpi-mujeres', sumar('MUJERES'));
   setTxt('kpi-pcd', sumar('PCD'));
   setTxt('kpi-riesgo', sumar('RIESGO_SALUD'));
+  setTxt('kpi-electro', sumar('ELECTRO_DEP'));
   setTxt('kpi-evacuados', sumar('EVACUADOS'));
 
   let sumaNinos=0, sumaAdultos=0, sumaMayores=0;
@@ -1578,15 +1586,36 @@ function calcularKPIs(datosFiltrados){
   const elMayores=document.getElementById('kpi-mayores');
   if(elMayores) elMayores.innerText=sumaMayores.toLocaleString('es-AR');
 
-  const destinos=[...new Set(filas.map(r=>String(r.DESTINOS||'').trim())
-    .filter(d=>d&&d.toLowerCase()!=='ninguno'))];
+  const destinos=destinosAgrupados(filas);
   const lista=document.getElementById('kpi-destinos');
   if(!lista) return;
   if(!destinos.length){
     lista.innerHTML='<li class="co-destinos-vacio">Sin centros de destino</li>';
     return;
   }
-  lista.innerHTML=destinos.map(d=>`<li>${escapeHtml(d)}</li>`).join('');
+  lista.innerHTML=destinos.map(({nombre,cantidad,direccion})=>{
+    const n=escapeHtml(nombre);
+    const c=escapeHtml(fmtEnteroAR(cantidad));
+    const d=escapeHtml(direccion||'s/d');
+    return `<li>${n} — ${c} evacuados (${d})</li>`;
+  }).join('');
+}
+
+function destinosAgrupados(filas){
+  const porNombre=new Map();
+  for(const r of filas){
+    const nombre=String(r.DESTINOS||r.CENTRO||'').trim();
+    if(!nombre||nombre.toLowerCase()==='ninguno') continue;
+    const direccion=String(r.DIRECCION||r.DIRECCIÓN||'').trim();
+    const cantidad=numCSV(r.EVACUADOS);
+    const prev=porNombre.get(nombre);
+    if(!prev) porNombre.set(nombre,{nombre,cantidad,direccion});
+    else{
+      prev.cantidad+=cantidad;
+      if(!prev.direccion&&direccion) prev.direccion=direccion;
+    }
+  }
+  return [...porNombre.values()];
 }
 
 function actualizarFiltrosCascada(){
@@ -1598,7 +1627,7 @@ function actualizarFiltrosCascada(){
   llenarSelect(selP, opcionesUnicas(datosOperativos,'PROVINCIA'), 'Todas las provincias');
   selP.disabled=false;
   resetSelect(selD, 'Todos los departamentos', true);
-  resetSelect(selL, 'Todas las localidades', true);
+  resetSelect(selL, 'Todos los municipios', true);
   resetSelect(selB, 'Todos los barrios', true);
   calcularKPIs(datosOperativos);
 }
@@ -1613,7 +1642,7 @@ function conectarFiltrosOperativos(){
   selP.addEventListener('change',()=>{
     if(!selP.value){
       resetSelect(selD, 'Todos los departamentos', true);
-      resetSelect(selL, 'Todas las localidades', true);
+      resetSelect(selL, 'Todos los municipios', true);
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(datosOperativos);
       return;
@@ -1622,21 +1651,21 @@ function conectarFiltrosOperativos(){
     llenarSelect(selD, opcionesUnicas(filas,'DEPARTAMENTO'), 'Todos los departamentos');
     selD.disabled=false;
     selD.value='';
-    resetSelect(selL, 'Todas las localidades', true);
+    resetSelect(selL, 'Todos los municipios', true);
     resetSelect(selB, 'Todos los barrios', true);
     calcularKPIs(filas);
   });
 
   selD.addEventListener('change',()=>{
     if(!selD.value){
-      resetSelect(selL, 'Todas las localidades', true);
+      resetSelect(selL, 'Todos los municipios', true);
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(filasOperativasFiltradas());
       return;
     }
     const filas=datosOperativos.filter(r=>
       r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value);
-    llenarSelect(selL, opcionesUnicas(filas,'LOCALIDAD'), 'Todas las localidades');
+    llenarSelect(selL, opcionesUnicasMunicipio(filas), 'Todos los municipios');
     selL.disabled=false;
     selL.value='';
     resetSelect(selB, 'Todos los barrios', true);
@@ -1650,7 +1679,7 @@ function conectarFiltrosOperativos(){
       return;
     }
     const filas=datosOperativos.filter(r=>
-      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value&&r.LOCALIDAD===selL.value);
+      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value&&municipioDe(r)===selL.value);
     llenarSelect(selB, opcionesUnicas(filas,'BARRIO'), 'Todos los barrios');
     selB.disabled=false;
     selB.value='';
