@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-09-21 14:52:54",
+  "last_update": "2026-09-21 20:00:27",
   "DATES": [
     "2026-09-10",
     "2026-09-11",
@@ -43,7 +43,7 @@
           "n": "AGUAS BLANCAS",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 1.1, 1.09, 1.1, 1.1, 1.09, 1.08]
+          "r": [null, null, null, null, null, null, 1.1, 1.09, 1.1, 1.1, 1.09, 1.07]
         },
         {
           "n": "EMBARCACIÓN",
@@ -67,7 +67,7 @@
           "n": "EL COLORADO",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 2.45, 2.43, 2.42, 2.45, 2.42, 2.39]
+          "r": [null, null, null, null, null, null, 2.45, 2.43, 2.42, 2.45, 2.42, 2.38]
         },
         {
           "n": "VELAZ",
