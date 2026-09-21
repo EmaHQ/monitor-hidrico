@@ -290,6 +290,16 @@ body {
   text-transform: uppercase;
 }
 #modal-referencias p { margin: 0 0 12px; color: #B7CDD8; }
+.resaltado-propio {
+  display: inline-block;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: rgba(100, 181, 246, .16);
+  color: #F4FAFC;
+  text-shadow: 0 0 6px rgba(100, 181, 246, .45);
+}
 #modal-referencias ul {
   margin: 0 0 14px;
   padding: 0;
