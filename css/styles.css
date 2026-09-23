@@ -477,6 +477,44 @@ body {
   cursor: pointer;
   accent-color: #4BA3E6;
 }
+.gc-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(244, 250, 252, .1);
+}
+.gc-subtitle {
+  font-family: var(--ff-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(244, 250, 252, .7);
+}
+.btn-tiff {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 250, 252, .16);
+  background: rgba(244, 250, 252, .06);
+  color: #F4FAFC;
+  font-family: var(--ff-cond);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.btn-tiff:hover,
+.btn-tiff:focus-visible {
+  background: rgba(244, 250, 252, .12);
+  outline: none;
+}
+.btn-tiff.activo {
+  border-color: rgba(100, 181, 246, .55);
+  background: rgba(100, 181, 246, .22);
+  box-shadow: inset 0 0 0 1px rgba(100, 181, 246, .25);
+}
 .btn-eliminar-capa {
   flex-shrink: 0;
   margin-left: auto;

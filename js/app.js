@@ -922,6 +922,8 @@ function conectarFiltros(){
 
 let mapa=null;
 let capaPuertos=null;
+let capaTiff1=null;
+let capaTiff2=null;
 const marcadoresEnMapa={};
 const MARCADORES_PUERTOS=marcadoresEnMapa;
 const CENTRO_CUENCA_DEL_PLATA=[-26.0,-59.0];
@@ -1155,6 +1157,54 @@ function conectarGestorCapas(){
     reader.onerror=()=>console.error('[monitor-hidrico] no se pudo leer el GeoJSON:', archivo.name);
     reader.readAsText(archivo);
   });
+  conectarCapasTiff();
+}
+
+function conectarCapasTiff(){
+  const btn1=document.getElementById('btn-tiff-1');
+  const btn2=document.getElementById('btn-tiff-2');
+  if(btn1){
+    btn1.addEventListener('click',()=>{
+      if(!mapa||typeof L==='undefined') return;
+      if(capaTiff1){
+        mapa.removeLayer(capaTiff1);
+        capaTiff1=null;
+        btn1.classList.remove('activo');
+        btn1.setAttribute('aria-pressed','false');
+      }else{
+        capaTiff1=L.tileLayer('./capas/tiles_tiff1/{z}/{x}/{y}.png',{
+          minZoom:10,
+          maxZoom:16,
+          tms:false,
+          opacity:0.85,
+        });
+        capaTiff1.addTo(mapa);
+        btn1.classList.add('activo');
+        btn1.setAttribute('aria-pressed','true');
+      }
+    });
+  }
+  if(btn2){
+    btn2.addEventListener('click',()=>{
+      if(!mapa||typeof L==='undefined') return;
+      if(capaTiff2){
+        mapa.removeLayer(capaTiff2);
+        capaTiff2=null;
+        btn2.classList.remove('activo');
+        btn2.setAttribute('aria-pressed','false');
+      }else{
+        capaTiff2=L.tileLayer('./capas/tiles_tiff2/{z}/{x}/{y}.png',{
+          minZoom:10,
+          maxZoom:16,
+          tms:false,
+          opacity:0.85,
+        });
+        capaTiff2.addTo(mapa);
+        btn2.classList.add('activo');
+        btn2.setAttribute('aria-pressed','true');
+      }
+    });
+  }
 }
 
 function cargarCapaGeoJSON(nombreArchivo, texto){
