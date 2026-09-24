@@ -439,7 +439,8 @@ body {
   font-size: 11px;
   padding: 2px 0;
 }
-#lista-capas-geojson li {
+#lista-capas-geojson li,
+.gc-item {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -460,7 +461,8 @@ body {
   accent-color: #4BA3E6;
   cursor: pointer;
 }
-#lista-capas-geojson input[type="color"] {
+#lista-capas-geojson input[type="color"],
+.gc-item input[type="color"] {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
@@ -470,7 +472,8 @@ body {
   background: transparent;
   cursor: pointer;
 }
-#lista-capas-geojson input[type="range"] {
+#lista-capas-geojson input[type="range"],
+.gc-item input[type="range"] {
   flex: 0 0 64px;
   width: 64px;
   height: 4px;

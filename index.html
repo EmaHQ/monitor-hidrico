@@ -121,6 +121,14 @@
             <input type="file" id="input-geojson" accept=".geojson,.json">
           </label>
           <ul id="lista-capas-geojson"></ul>
+          <div class="gc-sub" id="capas-administrativas">
+            <span class="gc-subtitle">Capas administrativas</span>
+            <button type="button" id="btn-toggle-municipios" class="btn-tiff activo" aria-pressed="true">Ocultar municipios</button>
+            <div class="gc-item">
+              <input type="color" id="color-municipios" value="#f39c12" title="Color de borde">
+              <input type="range" id="opacity-municipios" min="0" max="1" step="0.1" value="0.1" title="Opacidad de relleno">
+            </div>
+          </div>
           <div class="gc-sub" id="capas-satelitales">
             <span class="gc-subtitle">Capas satelitales</span>
             <button type="button" id="btn-tiff-1" class="btn-tiff" aria-pressed="false">Mostrar TIFF 1</button>
