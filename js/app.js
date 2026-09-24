@@ -926,6 +926,13 @@ let capaTiff1=null;
 let capaTiff2=null;
 let municipiosLayer=null;
 let syncMunicipioDesdeMapa=false;
+const catalogoMunicipios={
+  listo:false,
+  provincias:[],
+  dptosPorProv:new Map(),
+  munisPorProvDpto:new Map(),
+  munisPorProv:new Map(),
+};
 const marcadoresEnMapa={};
 const MARCADORES_PUERTOS=marcadoresEnMapa;
 const CENTRO_CUENCA_DEL_PLATA=[-26.0,-59.0];
@@ -1250,6 +1257,8 @@ function conectarCapaMunicipios(){
       return response.json();
     })
     .then(data=>{
+      extraerCatalogoMunicipios(data.features||[]);
+      poblarFiltrosGeoInicial();
       const colorIni=colorMunicipios?.value||'#f39c12';
       const opacidadIni=opacityMunicipios?Number(opacityMunicipios.value):0.1;
       municipiosLayer=L.geoJSON(data,{
@@ -1274,20 +1283,77 @@ function conectarCapaMunicipios(){
     })
     .catch(error=>console.error('Error al cargar el GeoJSON de municipios:', error));
 
-  const selMunicipio=document.getElementById('filtro-localidad');
-  if(selMunicipio){
-    selMunicipio.addEventListener('change',()=>{
-      if(syncMunicipioDesdeMapa||!selMunicipio.value||!municipiosLayer||!mapa) return;
-      const capa=capaMunicipioPorFiltro(
-        selMunicipio.value,
-        document.getElementById('filtro-provincia')?.value||'',
-        document.getElementById('filtro-departamento')?.value||''
-      );
-      if(!capa) return;
-      mapa.fitBounds(capa.getBounds(),{padding:[40,40]});
-      if(mapa.hasLayer(municipiosLayer)) capa.openPopup();
-    });
+}
+
+function extraerCatalogoMunicipios(features){
+  const sortEs=(a,b)=>a.localeCompare(b,'es',{sensitivity:'base'});
+  const provSet=new Set();
+  const dptosPorProv=new Map();
+  const munisPorProvDpto=new Map();
+  const munisPorProv=new Map();
+  for(const f of features||[]){
+    const p=f.properties||{};
+    const prov=String(p.PROVINCIA||'').trim();
+    const dpto=String(p.DPTO||'').trim();
+    const muni=String(p.MUNICIPIO||'').trim();
+    if(!prov||!dpto||!muni) continue;
+    provSet.add(prov);
+    if(!dptosPorProv.has(prov)) dptosPorProv.set(prov,new Set());
+    dptosPorProv.get(prov).add(dpto);
+    if(!munisPorProv.has(prov)) munisPorProv.set(prov,new Set());
+    munisPorProv.get(prov).add(muni);
+    const k=claveCatalogoGeo(prov,dpto);
+    if(!munisPorProvDpto.has(k)) munisPorProvDpto.set(k,new Set());
+    munisPorProvDpto.get(k).add(muni);
   }
+  catalogoMunicipios.listo=true;
+  catalogoMunicipios.provincias=[...provSet].sort(sortEs);
+  catalogoMunicipios.dptosPorProv=new Map(
+    [...dptosPorProv].map(([k,v])=>[k,[...v].sort(sortEs)])
+  );
+  catalogoMunicipios.munisPorProv=new Map(
+    [...munisPorProv].map(([k,v])=>[k,[...v].sort(sortEs)])
+  );
+  catalogoMunicipios.munisPorProvDpto=new Map(
+    [...munisPorProvDpto].map(([k,v])=>[k,[...v].sort(sortEs)])
+  );
+}
+
+function claveCatalogoGeo(prov, dpto){
+  return `${normTextoGeo(prov)}||${normTextoGeo(dpto)}`;
+}
+
+function listaMapaCatalogo(mapaVal, clave){
+  if(!clave) return [];
+  if(mapaVal.has(clave)) return mapaVal.get(clave)||[];
+  const n=normTextoGeo(clave);
+  for(const [k,v] of mapaVal){
+    if(normTextoGeo(k)===n) return v||[];
+  }
+  return [];
+}
+
+function dptosDeProvincia(prov){
+  return listaMapaCatalogo(catalogoMunicipios.dptosPorProv, prov);
+}
+
+function munisDe(prov, dpto){
+  if(prov&&dpto){
+    const exactos=catalogoMunicipios.munisPorProvDpto.get(claveCatalogoGeo(prov,dpto));
+    if(exactos&&exactos.length) return exactos;
+  }
+  return listaMapaCatalogo(catalogoMunicipios.munisPorProv, prov);
+}
+
+function poblarFiltrosGeoInicial(){
+  const selP=document.getElementById('filtro-provincia');
+  const selD=document.getElementById('filtro-departamento');
+  const selL=document.getElementById('filtro-localidad');
+  if(!selP||!catalogoMunicipios.listo) return;
+  llenarSelect(selP, catalogoMunicipios.provincias, 'Todas las provincias');
+  selP.disabled=false;
+  resetSelect(selD, 'Todos los departamentos', true);
+  resetSelect(selL, 'Todos los municipios', true);
 }
 
 function popupMunicipio(props){
@@ -1356,6 +1422,42 @@ function capaMunicipioPorFiltro(nombreMuni, prov, dpto){
     hallada=layer;
   });
   return hallada||respaldo;
+}
+
+function boundsMunicipiosPorFiltro(prov, dpto, muni){
+  if(!municipiosLayer||typeof L==='undefined') return null;
+  const nP=normTextoGeo(prov);
+  const nD=normTextoGeo(dpto);
+  const nM=normTextoGeo(muni);
+  let bounds=null;
+  municipiosLayer.eachLayer(layer=>{
+    const p=layer.feature&&layer.feature.properties;
+    if(!p) return;
+    if(nP&&normTextoGeo(p.PROVINCIA)!==nP) return;
+    if(nD&&normTextoGeo(p.DPTO)!==nD) return;
+    if(nM&&normTextoGeo(p.MUNICIPIO)!==nM) return;
+    const b=layer.getBounds&&layer.getBounds();
+    if(!b||!b.isValid()) return;
+    bounds=bounds?bounds.extend(b):L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+  });
+  return bounds;
+}
+
+function enfocarFiltroEnMapa(abrirPopup){
+  if(syncMunicipioDesdeMapa||!municipiosLayer||!mapa) return;
+  const prov=document.getElementById('filtro-provincia')?.value||'';
+  const dpto=document.getElementById('filtro-departamento')?.value||'';
+  const muni=document.getElementById('filtro-localidad')?.value||'';
+  if(!prov&&!dpto&&!muni) return;
+  if(muni){
+    const capa=capaMunicipioPorFiltro(muni,prov,dpto);
+    if(!capa) return;
+    mapa.fitBounds(capa.getBounds(),{padding:[40,40]});
+    if(abrirPopup&&mapa.hasLayer(municipiosLayer)) capa.openPopup();
+    return;
+  }
+  const bounds=boundsMunicipiosPorFiltro(prov,dpto,'');
+  if(bounds&&bounds.isValid()) mapa.fitBounds(bounds,{padding:[40,40]});
 }
 
 function cargarCapaGeoJSON(nombreArchivo, texto){
@@ -1670,7 +1772,53 @@ function conectarLayoutPaneles(){
   if(min) min.addEventListener('click',togglePanelInferior);
   const mostrar=document.getElementById('js-mostrar-datos');
   if(mostrar) mostrar.addEventListener('click',mostrarPanelInferior);
+  conectarResizers();
   sincronizarBotonesLayout();
+}
+
+function conectarResizers(){
+  const root=layoutRoot();
+  const vert=document.getElementById('resizer-vertical');
+  const horz=document.getElementById('resizer-horizontal');
+  if(!root||!vert||!horz) return;
+
+  const invalidarMapa=()=>{ if(mapa) mapa.invalidateSize(); };
+
+  const iniciarArrastre=(tipo, e)=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    vert.classList.toggle('activo', tipo==='v');
+    horz.classList.toggle('activo', tipo==='h');
+    document.body.classList.add(tipo==='v'?'resizing-cols':'resizing-rows');
+
+    const mover=ev=>{
+      if(tipo==='v'){
+        const r=root.getBoundingClientRect();
+        const w=Math.max(260, Math.min(r.width-300-5, ev.clientX-r.left));
+        root.style.setProperty('--ancho-izq', `${Math.round(w)}px`);
+      }else{
+        const der=document.getElementById('panel-derecho');
+        if(!der) return;
+        const r=der.getBoundingClientRect();
+        const h=Math.max(140, Math.min(r.height-160-5, r.bottom-ev.clientY));
+        root.style.setProperty('--alto-datos', `${Math.round(h)}px`);
+      }
+      invalidarMapa();
+    };
+    const soltar=()=>{
+      vert.classList.remove('activo');
+      horz.classList.remove('activo');
+      document.body.classList.remove('resizing-cols','resizing-rows');
+      document.removeEventListener('mousemove', mover);
+      document.removeEventListener('mouseup', soltar);
+      invalidarMapa();
+    };
+    document.addEventListener('mousemove', mover);
+    document.addEventListener('mouseup', soltar);
+  };
+
+  vert.addEventListener('mousedown', e=>iniciarArrastre('v', e));
+  horz.addEventListener('mousedown', e=>iniciarArrastre('h', e));
 }
 
 // --- Centro de mando operativo (Google Sheets CSV) --------------------------
@@ -1747,15 +1895,19 @@ function opcionesUnicasMunicipio(filas){
   return [...new Set(filas.map(municipioDe).filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
 }
+function coincideFiltroGeo(valorFila, valorFiltro){
+  if(!valorFiltro) return true;
+  return normTextoGeo(valorFila)===normTextoGeo(valorFiltro);
+}
 function filasOperativasFiltradas(){
   const p=selOperativo('filtro-provincia')?.value||'';
   const d=selOperativo('filtro-departamento')?.value||'';
   const l=selOperativo('filtro-localidad')?.value||'';
   const b=selOperativo('filtro-barrio')?.value||'';
   return datosOperativos.filter(r=>
-    (!p||r.PROVINCIA===p)&&
-    (!d||r.DEPARTAMENTO===d)&&
-    (!l||municipioDe(r)===l)&&
+    coincideFiltroGeo(r.PROVINCIA,p)&&
+    coincideFiltroGeo(r.DEPARTAMENTO,d)&&
+    coincideFiltroGeo(municipioDe(r),l)&&
     (!b||r.BARRIO===b)
   );
 }
@@ -1821,16 +1973,12 @@ function destinosAgrupados(filas){
 
 function actualizarFiltrosCascada(){
   const selP=selOperativo('filtro-provincia');
-  const selD=selOperativo('filtro-departamento');
-  const selL=selOperativo('filtro-localidad');
   const selB=selOperativo('filtro-barrio');
-  if(!selP||!selD||!selL||!selB) return;
-  llenarSelect(selP, opcionesUnicas(datosOperativos,'PROVINCIA'), 'Todas las provincias');
-  selP.disabled=false;
-  resetSelect(selD, 'Todos los departamentos', true);
-  resetSelect(selL, 'Todos los municipios', true);
-  resetSelect(selB, 'Todos los barrios', true);
-  calcularKPIs(datosOperativos);
+  if(catalogoMunicipios.listo&&selP&&selP.options.length<=1){
+    poblarFiltrosGeoInicial();
+  }
+  if(selB&&!selB.value) resetSelect(selB, 'Todos los barrios', true);
+  calcularKPIs(filasOperativasFiltradas());
 }
 
 function conectarFiltrosOperativos(){
@@ -1848,13 +1996,13 @@ function conectarFiltrosOperativos(){
       calcularKPIs(datosOperativos);
       return;
     }
-    const filas=datosOperativos.filter(r=>r.PROVINCIA===selP.value);
-    llenarSelect(selD, opcionesUnicas(filas,'DEPARTAMENTO'), 'Todos los departamentos');
+    llenarSelect(selD, dptosDeProvincia(selP.value), 'Todos los departamentos');
     selD.disabled=false;
     selD.value='';
     resetSelect(selL, 'Todos los municipios', true);
     resetSelect(selB, 'Todos los barrios', true);
-    calcularKPIs(filas);
+    calcularKPIs(filasOperativasFiltradas());
+    enfocarFiltroEnMapa(false);
   });
 
   selD.addEventListener('change',()=>{
@@ -1862,29 +2010,30 @@ function conectarFiltrosOperativos(){
       resetSelect(selL, 'Todos los municipios', true);
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(filasOperativasFiltradas());
+      enfocarFiltroEnMapa(false);
       return;
     }
-    const filas=datosOperativos.filter(r=>
-      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value);
-    llenarSelect(selL, opcionesUnicasMunicipio(filas), 'Todos los municipios');
+    llenarSelect(selL, munisDe(selP.value, selD.value), 'Todos los municipios');
     selL.disabled=false;
     selL.value='';
     resetSelect(selB, 'Todos los barrios', true);
-    calcularKPIs(filas);
+    calcularKPIs(filasOperativasFiltradas());
+    enfocarFiltroEnMapa(false);
   });
 
   selL.addEventListener('change',()=>{
     if(!selL.value){
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(filasOperativasFiltradas());
+      enfocarFiltroEnMapa(false);
       return;
     }
-    const filas=datosOperativos.filter(r=>
-      r.PROVINCIA===selP.value&&r.DEPARTAMENTO===selD.value&&municipioDe(r)===selL.value);
+    const filas=filasOperativasFiltradas();
     llenarSelect(selB, opcionesUnicas(filas,'BARRIO'), 'Todos los barrios');
     selB.disabled=false;
     selB.value='';
-    calcularKPIs(filas);
+    calcularKPIs(filasOperativasFiltradas());
+    enfocarFiltroEnMapa(true);
   });
 
   selB.addEventListener('change',()=>{
