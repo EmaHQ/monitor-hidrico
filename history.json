@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-09-24 13:30:39",
+  "last_update": "2026-09-24 20:00:44",
   "DATES": [
     "2026-09-10",
     "2026-09-11",
@@ -40,13 +40,13 @@
           "n": "ALARACHE",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.05, 0.04, 0.04, 0.01, 0.02, 0.04, 0.0]
+          "r": [null, null, null, null, null, null, 0.02, 0.01, 0.05, 0.04, 0.04, 0.01, 0.02, 0.04, 0.01]
         },
         {
           "n": "AGUAS BLANCAS",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 1.1, 1.09, 1.1, 1.1, 1.09, 1.07, 1.43, 1.45, 1.43]
+          "r": [null, null, null, null, null, null, 1.1, 1.09, 1.1, 1.1, 1.09, 1.07, 1.43, 1.45, 1.44]
         },
         {
           "n": "EMBARCACIÓN",
@@ -70,7 +70,7 @@
           "n": "EL COLORADO",
           "al": null,
           "ev": null,
-          "r": [null, null, null, null, null, null, 2.45, 2.43, 2.42, 2.45, 2.42, 2.38, 2.38, 2.37, 2.35]
+          "r": [null, null, null, null, null, null, 2.45, 2.43, 2.42, 2.45, 2.42, 2.38, 2.38, 2.37, 2.34]
         },
         {
           "n": "VELAZ",
