@@ -606,6 +606,15 @@ body.resizing-rows * { cursor: row-resize !important; user-select: none; }
   gap: 15px;
   padding: 15px;
 }
+.co-col-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+}
+.co-col-demo .co-card {
+  flex: 1 1 auto;
+}
 .co-card {
   background: var(--surf2);
   border: 1px solid var(--border);
