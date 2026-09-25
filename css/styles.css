@@ -737,6 +737,13 @@ body.resizing-rows * { cursor: row-resize !important; user-select: none; }
   color: var(--alerta-oficial);
   line-height: 1.1;
 }
+.co-fuente {
+  color: var(--ink3);
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 8px;
+  line-height: 1.25;
+}
 .co-alert-note {
   margin: 2px 0 10px;
   font-size: 11px;

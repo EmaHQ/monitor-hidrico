@@ -925,6 +925,7 @@ let capaPuertos=null;
 let capaTiff1=null;
 let capaTiff2=null;
 let municipiosLayer=null;
+let featuresMunicipios=[];
 let syncMunicipioDesdeMapa=false;
 const catalogoMunicipios={
   listo:false,
@@ -1259,6 +1260,7 @@ function conectarCapaMunicipios(){
     .then(data=>{
       extraerCatalogoMunicipios(data.features||[]);
       poblarFiltrosGeoInicial();
+      actualizarTotalesDemografia();
       const colorIni=colorMunicipios?.value||'#f39c12';
       const opacidadIni=opacityMunicipios?Number(opacityMunicipios.value):0.1;
       municipiosLayer=L.geoJSON(data,{
@@ -1286,6 +1288,7 @@ function conectarCapaMunicipios(){
 }
 
 function extraerCatalogoMunicipios(features){
+  featuresMunicipios=features||[];
   const sortEs=(a,b)=>a.localeCompare(b,'es',{sensitivity:'base'});
   const provSet=new Set();
   const dptosPorProv=new Map();
@@ -1357,10 +1360,40 @@ function poblarFiltrosGeoInicial(){
 }
 
 function popupMunicipio(props){
-  const nombre=escapeHtml(props.MUNICIPIO||'s/d');
-  const prov=escapeHtml(props.PROVINCIA||'s/d');
-  const dpto=escapeHtml(props.DPTO||'s/d');
-  return `<strong>${nombre}</strong><br>${prov} · ${dpto}<br>${fmtEnteroAR(props.POB_BASE)} habitantes`;
+  const p=props||{};
+  const mun=escapeHtml(p.MUNICIPIO||'s/d');
+  const prov=escapeHtml(p.PROVINCIA||'s/d');
+  const dpto=escapeHtml(p.DPTO||'s/d');
+  const pob=escapeHtml(fmtEnteroAR(p.POB_BASE));
+  const viv=escapeHtml(fmtEnteroAR(p.VIV_BASE));
+  return `<div style="font-family: Arial, sans-serif; text-align: center;">
+    <strong style="font-size: 14px; text-transform: uppercase;">MUN: ${mun}</strong><br>
+    <span style="color: #555; font-size: 12px;">PROV: ${prov}</span><br>
+    <span style="color: #555; font-size: 12px;">DEPTO: ${dpto}</span><br>
+    <span style="font-size: 12px; margin-top: 5px; display: block;">
+        <strong>${pob}</strong> hab. | <strong>${viv}</strong> viv.
+    </span>
+</div>`;
+}
+
+function actualizarTotalesDemografia(){
+  const prov=document.getElementById('filtro-provincia')?.value||'';
+  const dpto=document.getElementById('filtro-departamento')?.value||'';
+  const muni=document.getElementById('filtro-localidad')?.value||'';
+  let pob=0;
+  let viv=0;
+  for(const f of featuresMunicipios){
+    const p=f.properties||{};
+    if(prov&&!coincideFiltroGeo(p.PROVINCIA,prov)) continue;
+    if(dpto&&!coincideFiltroGeo(p.DPTO,dpto)) continue;
+    if(muni&&!coincideFiltroGeo(p.MUNICIPIO,muni)) continue;
+    pob+=numCSV(p.POB_BASE);
+    viv+=numCSV(p.VIV_BASE);
+  }
+  const elPob=document.getElementById('kpi-poblacion');
+  if(elPob) elPob.textContent=fmtEnteroAR(pob);
+  const elViv=document.getElementById('kpi-viviendas');
+  if(elViv) elViv.textContent=fmtEnteroAR(viv);
 }
 
 function normTextoGeo(s){
@@ -1918,7 +1951,7 @@ function calcularKPIs(datosFiltrados){
     const el=document.getElementById(id);
     if(el) el.textContent=fmtEnteroAR(val);
   };
-  setTxt('kpi-poblacion', sumar('POB_TOTAL'));
+  actualizarTotalesDemografia();
   setTxt('kpi-hombres', sumar('HOMBRES'));
   setTxt('kpi-mujeres', sumar('MUJERES'));
   setTxt('kpi-pcd', sumar('PCD'));
