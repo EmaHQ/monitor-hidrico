@@ -1240,16 +1240,10 @@ function conectarCapaMunicipios(){
     });
   }
   if(colorMunicipios){
-    colorMunicipios.addEventListener('input',()=>{
-      if(!municipiosLayer) return;
-      municipiosLayer.setStyle({color:colorMunicipios.value});
-    });
+    colorMunicipios.addEventListener('input',()=>resaltarPoligonosFiltrados());
   }
   if(opacityMunicipios){
-    opacityMunicipios.addEventListener('input',()=>{
-      if(!municipiosLayer) return;
-      municipiosLayer.setStyle({fillOpacity:Number(opacityMunicipios.value)});
-    });
+    opacityMunicipios.addEventListener('input',()=>resaltarPoligonosFiltrados());
   }
   if(!mapa||typeof L==='undefined') return;
   fetch('capas/municipios.geojson')
@@ -1277,11 +1271,13 @@ function conectarCapaMunicipios(){
           layer.on('click',function(e){
             if(mapa) mapa.fitBounds(e.target.getBounds(),{padding:[40,40]});
             aplicarFiltrosDesdeMunicipio(props);
+            resaltarPoligonosFiltrados();
           });
         },
       });
       municipiosLayer.addTo(mapa);
       municipiosLayer.bringToBack();
+      resaltarPoligonosFiltrados();
     })
     .catch(error=>console.error('Error al cargar el GeoJSON de municipios:', error));
 
@@ -1374,6 +1370,37 @@ function popupMunicipio(props){
         <strong>${pob}</strong> hab. | <strong>${viv}</strong> viv.
     </span>
 </div>`;
+}
+
+function resaltarPoligonosFiltrados(){
+  if(!municipiosLayer) return;
+  const prov=document.getElementById('filtro-provincia')?.value||'';
+  const dpto=document.getElementById('filtro-departamento')?.value||'';
+  const muni=document.getElementById('filtro-localidad')?.value||'';
+  const color=document.getElementById('color-municipios')?.value||'#f39c12';
+  const opacidad=Number(document.getElementById('opacity-municipios')?.value??0.1);
+  municipiosLayer.eachLayer(layer=>{
+    const p=(layer.feature&&layer.feature.properties)||{};
+    const coincide=
+      (!prov||coincideFiltroGeo(p.PROVINCIA,prov))&&
+      (!dpto||coincideFiltroGeo(p.DPTO,dpto))&&
+      (!muni||coincideFiltroGeo(p.MUNICIPIO,muni));
+    if(coincide){
+      layer.setStyle({
+        color,
+        weight:2,
+        fillOpacity:opacidad,
+        opacity:1,
+      });
+    }else{
+      layer.setStyle({
+        color:'#888888',
+        weight:0.5,
+        fillOpacity:0,
+        opacity:0.2,
+      });
+    }
+  });
 }
 
 function actualizarTotalesDemografia(){
@@ -2027,6 +2054,7 @@ function conectarFiltrosOperativos(){
       resetSelect(selL, 'Todos los municipios', true);
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(datosOperativos);
+      resaltarPoligonosFiltrados();
       return;
     }
     llenarSelect(selD, dptosDeProvincia(selP.value), 'Todos los departamentos');
@@ -2036,6 +2064,7 @@ function conectarFiltrosOperativos(){
     resetSelect(selB, 'Todos los barrios', true);
     calcularKPIs(filasOperativasFiltradas());
     enfocarFiltroEnMapa(false);
+    resaltarPoligonosFiltrados();
   });
 
   selD.addEventListener('change',()=>{
@@ -2044,6 +2073,7 @@ function conectarFiltrosOperativos(){
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(filasOperativasFiltradas());
       enfocarFiltroEnMapa(false);
+      resaltarPoligonosFiltrados();
       return;
     }
     llenarSelect(selL, munisDe(selP.value, selD.value), 'Todos los municipios');
@@ -2052,6 +2082,7 @@ function conectarFiltrosOperativos(){
     resetSelect(selB, 'Todos los barrios', true);
     calcularKPIs(filasOperativasFiltradas());
     enfocarFiltroEnMapa(false);
+    resaltarPoligonosFiltrados();
   });
 
   selL.addEventListener('change',()=>{
@@ -2059,6 +2090,7 @@ function conectarFiltrosOperativos(){
       resetSelect(selB, 'Todos los barrios', true);
       calcularKPIs(filasOperativasFiltradas());
       enfocarFiltroEnMapa(false);
+      resaltarPoligonosFiltrados();
       return;
     }
     const filas=filasOperativasFiltradas();
@@ -2067,6 +2099,7 @@ function conectarFiltrosOperativos(){
     selB.value='';
     calcularKPIs(filasOperativasFiltradas());
     enfocarFiltroEnMapa(true);
+    resaltarPoligonosFiltrados();
   });
 
   selB.addEventListener('change',()=>{
