@@ -132,7 +132,9 @@
               <input type="range" id="opacity-municipios" min="0" max="1" step="0.1" value="0.1" title="Opacidad de relleno">
             </div>
           </div>
-          <div class="gc-sub" id="capas-satelitales">
+          <!-- Capas satelitales: ocultas a propósito. Para volver a mostrarlas,
+               quitá style="display: none;" del div #capas-satelitales (no hace falta tocar app.js). -->
+          <div class="gc-sub" id="capas-satelitales" style="display: none;">
             <span class="gc-subtitle">Capas satelitales</span>
             <button type="button" id="btn-tiff-1" class="btn-tiff" aria-pressed="false">Mostrar TIFF 1</button>
             <button type="button" id="btn-tiff-2" class="btn-tiff" aria-pressed="false">Mostrar TIFF 2</button>
