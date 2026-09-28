@@ -925,6 +925,8 @@ let capaPuertos=null;
 let capaTiff1=null;
 let capaTiff2=null;
 let municipiosLayer=null;
+let provinciasLayer=null;
+let deptosLayer=null;
 let featuresMunicipios=[];
 let syncMunicipioDesdeMapa=false;
 const catalogoMunicipios={
@@ -1169,6 +1171,7 @@ function conectarGestorCapas(){
   });
   conectarCapasTiff();
   conectarCapaMunicipios();
+  conectarCapasProvDepto();
 }
 
 function conectarCapasTiff(){
@@ -1232,10 +1235,11 @@ function conectarCapaMunicipios(){
         this.setAttribute('aria-pressed','false');
       }else{
         mapa.addLayer(municipiosLayer);
-        municipiosLayer.bringToBack();
+        ordenarCapasAdministrativas();
         this.innerText='OCULTAR MUNICIPIOS';
         this.classList.add('activo');
         this.setAttribute('aria-pressed','true');
+        resaltarPoligonosFiltrados();
       }
     });
   }
@@ -1276,11 +1280,73 @@ function conectarCapaMunicipios(){
         },
       });
       municipiosLayer.addTo(mapa);
-      municipiosLayer.bringToBack();
+      ordenarCapasAdministrativas();
       resaltarPoligonosFiltrados();
     })
     .catch(error=>console.error('Error al cargar el GeoJSON de municipios:', error));
 
+}
+
+function conectarCapasProvDepto(){
+  const btnP=document.getElementById('btn-toggle-provincias');
+  const btnD=document.getElementById('btn-toggle-deptos');
+  if(btnP){
+    btnP.addEventListener('click',()=>{
+      alternarCapaAdmin(provinciasLayer, btnP, 'MOSTRAR PROVINCIAS', 'OCULTAR PROVINCIAS');
+    });
+  }
+  if(btnD){
+    btnD.addEventListener('click',()=>{
+      alternarCapaAdmin(deptosLayer, btnD, 'MOSTRAR DEPARTAMENTOS', 'OCULTAR DEPARTAMENTOS');
+    });
+  }
+  if(!mapa||typeof L==='undefined') return;
+  fetch('capas/provincias.geojson')
+    .then(response=>{
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then(data=>{
+      provinciasLayer=L.geoJSON(data,{
+        style:()=>({color:'#f39c12',weight:2,fillOpacity:0.1}),
+      });
+    })
+    .catch(error=>console.error('Error al cargar el GeoJSON de provincias:', error));
+  fetch('capas/departamentos.geojson')
+    .then(response=>{
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then(data=>{
+      deptosLayer=L.geoJSON(data,{
+        style:()=>({color:'#f39c12',weight:1.5,fillOpacity:0.1}),
+      });
+    })
+    .catch(error=>console.error('Error al cargar el GeoJSON de departamentos:', error));
+}
+
+function alternarCapaAdmin(capa, btn, textoMostrar, textoOcultar){
+  if(!capa||!mapa||!btn) return;
+  if(mapa.hasLayer(capa)){
+    mapa.removeLayer(capa);
+    btn.innerText=textoMostrar;
+    btn.classList.remove('activo');
+    btn.setAttribute('aria-pressed','false');
+    return;
+  }
+  capa.addTo(mapa);
+  ordenarCapasAdministrativas();
+  btn.innerText=textoOcultar;
+  btn.classList.add('activo');
+  btn.setAttribute('aria-pressed','true');
+  resaltarPoligonosFiltrados();
+}
+
+function ordenarCapasAdministrativas(){
+  if(!mapa) return;
+  if(municipiosLayer&&mapa.hasLayer(municipiosLayer)) municipiosLayer.bringToBack();
+  if(deptosLayer&&mapa.hasLayer(deptosLayer)) deptosLayer.bringToBack();
+  if(provinciasLayer&&mapa.hasLayer(provinciasLayer)) provinciasLayer.bringToBack();
 }
 
 function extraerCatalogoMunicipios(features){
@@ -1372,35 +1438,39 @@ function popupMunicipio(props){
 </div>`;
 }
 
+function estiloAdminActivo(weight){
+  const color=document.getElementById('color-municipios')?.value||'#f39c12';
+  const opacidad=Number(document.getElementById('opacity-municipios')?.value??0.1);
+  return {color,weight,fillOpacity:opacidad,opacity:1};
+}
+function estiloAdminAtenua(){
+  return {color:'#888888',weight:0.5,fillOpacity:0,opacity:0.2};
+}
+function capaAdminEnMapa(capa){
+  return !!(capa&&mapa&&mapa.hasLayer(capa));
+}
+function aplicarResalteCapaAdmin(capa, coincideFn, weightActivo){
+  if(!capaAdminEnMapa(capa)) return;
+  const activo=estiloAdminActivo(weightActivo);
+  const atenua=estiloAdminAtenua();
+  capa.eachLayer(layer=>{
+    const p=(layer.feature&&layer.feature.properties)||{};
+    layer.setStyle(coincideFn(p)?activo:atenua);
+  });
+}
 function resaltarPoligonosFiltrados(){
-  if(!municipiosLayer) return;
   const prov=document.getElementById('filtro-provincia')?.value||'';
   const dpto=document.getElementById('filtro-departamento')?.value||'';
   const muni=document.getElementById('filtro-localidad')?.value||'';
-  const color=document.getElementById('color-municipios')?.value||'#f39c12';
-  const opacidad=Number(document.getElementById('opacity-municipios')?.value??0.1);
-  municipiosLayer.eachLayer(layer=>{
-    const p=(layer.feature&&layer.feature.properties)||{};
-    const coincide=
-      (!prov||coincideFiltroGeo(p.PROVINCIA,prov))&&
-      (!dpto||coincideFiltroGeo(p.DPTO,dpto))&&
-      (!muni||coincideFiltroGeo(p.MUNICIPIO,muni));
-    if(coincide){
-      layer.setStyle({
-        color,
-        weight:2,
-        fillOpacity:opacidad,
-        opacity:1,
-      });
-    }else{
-      layer.setStyle({
-        color:'#888888',
-        weight:0.5,
-        fillOpacity:0,
-        opacity:0.2,
-      });
-    }
-  });
+  aplicarResalteCapaAdmin(municipiosLayer, p=>
+    (!prov||coincideFiltroGeo(p.PROVINCIA,prov))&&
+    (!dpto||coincideFiltroGeo(p.DPTO,dpto))&&
+    (!muni||coincideFiltroGeo(p.MUNICIPIO,muni)), 2);
+  aplicarResalteCapaAdmin(provinciasLayer, p=>
+    (!prov||coincideFiltroGeo(p.PROVINCIA,prov)), 2);
+  aplicarResalteCapaAdmin(deptosLayer, p=>
+    (!prov||coincideFiltroGeo(p.PROVINCIA,prov))&&
+    (!dpto||coincideFiltroGeo(p.DPTO,dpto)), 1.5);
 }
 
 function actualizarTotalesDemografia(){
