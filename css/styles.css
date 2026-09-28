@@ -276,8 +276,9 @@ body.resizing-rows * { cursor: row-resize !important; user-select: none; }
 .map-btn-discreto {
   position: absolute;
   bottom: 20px;
-  left: 10px;
-  z-index: 1100;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
   padding: 4px 9px;
   border: 1px solid rgba(244, 250, 252, .18);
   border-radius: 6px;
