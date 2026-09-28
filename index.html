@@ -132,6 +132,15 @@
               <input type="range" id="opacity-municipios" min="0" max="1" step="0.1" value="0.1" title="Opacidad de relleno">
             </div>
           </div>
+          <div class="gc-sub" id="capas-meteorologia">
+            <span class="gc-subtitle">Meteorología en vivo</span>
+            <button type="button" id="btn-toggle-radar" class="btn-tiff" aria-pressed="false">Radar de lluvias</button>
+            <div id="radar-player-container">
+              <button type="button" id="btn-play-radar" aria-label="Reproducir o pausar el radar">▶</button>
+              <input type="range" id="radar-slider" min="0" value="0" step="1">
+              <span id="radar-time-display">--:--</span>
+            </div>
+          </div>
           <!-- Capas satelitales: ocultas a propósito. Para volver a mostrarlas,
                quitá style="display: none;" del div #capas-satelitales (no hace falta tocar app.js). -->
           <div class="gc-sub" id="capas-satelitales" style="display: none;">

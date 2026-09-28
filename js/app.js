@@ -927,6 +927,10 @@ let capaTiff2=null;
 let municipiosLayer=null;
 let provinciasLayer=null;
 let deptosLayer=null;
+let radarLayers=[];
+let currentRadarIndex=0;
+let radarInterval=null;
+let radarFrames=[];
 let featuresMunicipios=[];
 let syncMunicipioDesdeMapa=false;
 const catalogoMunicipios={
@@ -1172,6 +1176,150 @@ function conectarGestorCapas(){
   conectarCapasTiff();
   conectarCapaMunicipios();
   conectarCapasProvDepto();
+  conectarRadarLluvias();
+}
+
+function conectarRadarLluvias(){
+  const btn=document.getElementById('btn-toggle-radar');
+  const contenedor=document.getElementById('radar-player-container');
+  const btnPlay=document.getElementById('btn-play-radar');
+  const slider=document.getElementById('radar-slider');
+  if(!btn) return;
+
+  if(slider){
+    slider.addEventListener('input',()=>{
+      currentRadarIndex=Number(slider.value)||0;
+      actualizarFrameRadar(currentRadarIndex);
+    });
+  }
+  if(btnPlay){
+    btnPlay.addEventListener('click',()=>{
+      if(!radarLayers.length) return;
+      if(radarInterval){
+        pausarRadar();
+        return;
+      }
+      reproducirRadar();
+    });
+  }
+
+  btn.addEventListener('click', async()=>{
+    if(!mapa||typeof L==='undefined') return;
+    if(radarLayers.length){
+      detenerRadar();
+      btn.classList.remove('activo');
+      btn.setAttribute('aria-pressed','false');
+      if(contenedor) contenedor.classList.remove('visible');
+      return;
+    }
+    btn.disabled=true;
+    if(contenedor) contenedor.classList.add('visible');
+    try{
+      const resp=await fetch('https://api.rainviewer.com/public/weather-maps.json',{cache:'no-store'});
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data=await resp.json();
+      const host=String(data.host||'').replace(/\/$/,'');
+      radarFrames=[...(data.radar?.past||[]), ...(data.radar?.nowcast||[])];
+      if(!host||!radarFrames.length) throw new Error('sin frames de radar');
+      if(slider){
+        slider.min='0';
+        slider.max=String(radarFrames.length-1);
+        slider.value='0';
+      }
+      radarLayers=radarFrames.map(frame=>{
+        const layer=L.tileLayer(host+frame.path+'/256/{z}/{x}/{y}/4/1_1.png',{
+          opacity:0,
+          zIndex:1000,
+          attribution:'Radar de lluvias por RainViewer',
+        });
+        layer.addTo(mapa);
+        return layer;
+      });
+      currentRadarIndex=0;
+      actualizarFrameRadar(0);
+      btn.classList.add('activo');
+      btn.setAttribute('aria-pressed','true');
+    }catch(error){
+      console.error('[monitor-hidrico] no se pudo cargar el radar de lluvias:', error);
+      detenerRadar();
+      btn.classList.remove('activo');
+      btn.setAttribute('aria-pressed','false');
+      if(contenedor) contenedor.classList.remove('visible');
+    }finally{
+      btn.disabled=false;
+    }
+  });
+}
+
+function actualizarFrameRadar(index){
+  if(!radarLayers.length) return;
+  const i=Math.max(0, Math.min(radarLayers.length-1, Number(index)||0));
+  currentRadarIndex=i;
+  radarLayers.forEach((layer, n)=>{
+    if(layer&&layer.setOpacity) layer.setOpacity(n===i?0.65:0);
+  });
+  const slider=document.getElementById('radar-slider');
+  if(slider&&slider.value!==String(i)) slider.value=String(i);
+  const reloj=document.getElementById('radar-time-display');
+  if(reloj){
+    const unix=radarFrames[i]&&radarFrames[i].time;
+    reloj.textContent=horaRadar(unix);
+  }
+}
+
+function horaRadar(unix){
+  if(!unix) return '--:--';
+  const fecha=new Date(Number(unix)*1000);
+  if(Number.isNaN(fecha.getTime())) return '--:--';
+  return fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+
+function reproducirRadar(){
+  pausarRadar();
+  const btnPlay=document.getElementById('btn-play-radar');
+  if(btnPlay){
+    btnPlay.textContent='❚❚';
+    btnPlay.setAttribute('aria-label','Pausar el radar');
+  }
+  radarInterval=setInterval(()=>{
+    if(!radarLayers.length){
+      pausarRadar();
+      return;
+    }
+    currentRadarIndex=(currentRadarIndex+1)%radarLayers.length;
+    actualizarFrameRadar(currentRadarIndex);
+  },800);
+}
+
+function pausarRadar(){
+  if(radarInterval){
+    clearInterval(radarInterval);
+    radarInterval=null;
+  }
+  const btnPlay=document.getElementById('btn-play-radar');
+  if(btnPlay){
+    btnPlay.textContent='▶';
+    btnPlay.setAttribute('aria-label','Reproducir el radar');
+  }
+}
+
+function detenerRadar(){
+  pausarRadar();
+  if(mapa){
+    for(const layer of radarLayers){
+      if(layer&&mapa.hasLayer(layer)) mapa.removeLayer(layer);
+    }
+  }
+  radarLayers=[];
+  radarFrames=[];
+  currentRadarIndex=0;
+  const slider=document.getElementById('radar-slider');
+  if(slider){
+    slider.value='0';
+    slider.max='0';
+  }
+  const reloj=document.getElementById('radar-time-display');
+  if(reloj) reloj.textContent='--:--';
 }
 
 function conectarCapasTiff(){
